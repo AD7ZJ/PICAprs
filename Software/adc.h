@@ -5,6 +5,4 @@
 /*
  * Read the adc on the specified channel - result is in ADRES
  */
-#include "adc.c"
-
-extern void adc_read(unsigned char channel);
+void adc_read(unsigned char channel);

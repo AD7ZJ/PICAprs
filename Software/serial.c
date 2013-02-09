@@ -1,3 +1,6 @@
+#include <htc.h>
+#include "serial.h"
+
 #define	PIC_CLK 32000000
 
 void serial_setup(void) {

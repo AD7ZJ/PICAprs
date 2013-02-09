@@ -1,8 +1,6 @@
 //*****************
 //function prototypes
 
-#include "serial.c"
-
 void serial_setup(void);
 void putch(unsigned char c);
 unsigned char getch(void);

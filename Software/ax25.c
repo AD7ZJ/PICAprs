@@ -1,3 +1,7 @@
+#include <htc.h>
+#include <string.h>
+#include "ax25.h"
+
 /**
  * @defgroup AX25 Packet Creation
  *

@@ -1,3 +1,4 @@
+#include <htc.h>
 /*
  * Read the ADC on a 16F690.
  */

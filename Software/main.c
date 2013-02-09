@@ -39,13 +39,10 @@
  */
 
 #include <htc.h>
-#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "ax25.h"
-#include "ax25.c"
 #include "serial.h"
-#include "flash.c"
 
 #define _XTAL_FREQ 32000000
 __CONFIG(1, OSC_INT_RC_CLKOUT_ON_OSC2 & PLLEN_OSCILLATOR_MULTIPLIED_BY_4 & PCLKEN_PRIMARY_CLOCK_DISABLED);
@@ -70,7 +67,7 @@ void sysInit(void) {
 	ANSEL = 0b00000000;
 	ANSELH = 0b00000000;
 
-	ResetEn();
+	/*ResetEn();
 	Reset();
 	En_QIO();
 	flashWREN();
@@ -87,7 +84,7 @@ void sysInit(void) {
 	test = Read_Status_Register();
 	//while(Read_Status_Register() & 0x80);
 	testChar = HighSpeed_Read(0x000000);
-
+    */
 
 	// Clear the timers
 	TMR1H = 0x00;
@@ -125,7 +122,7 @@ void main(void) {
 			// Testing serial crap
 			printf("This is a test: %c Timer: %d\r\n", buff, TMR1L);
 			printf("Status reg:%X\r\n", test);
-			printf("Manufacturer ID:%X Dev type: %X Dev ID: %X\r\nRead:%X\r\n", Manufacturer_Id, Device_Type, Device_Id, testChar);
+			//printf("Manufacturer ID:%X Dev type: %X Dev ID: %X\r\nRead:%X\r\n", Manufacturer_Id, Device_Type, Device_Id, testChar);
 			secCount = 0;
 		}
 		if(gpsMode == GPS_COMPLETE_STRING) {
