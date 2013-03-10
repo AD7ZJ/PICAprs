@@ -1,5 +1,7 @@
 //*****************
 //function prototypes
+#ifndef SERIAL_H
+#define	SERIAL_H
 
 void serial_setup(void);
 void putch(unsigned char c);
@@ -12,5 +14,5 @@ void putinthex(unsigned int c);
 
 #define putlf putst("\n") //put line feed
 
-
+#endif /* SERIAL_H */
 

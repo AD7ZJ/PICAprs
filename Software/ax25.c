@@ -10,6 +10,33 @@
  */
 
 /**
+ * Table of values to generate a sin wave.  Each value represents the value
+ * to jump to after an equal increment in time.  Note this is highly dependant
+ * on the particular HW configuration :-)
+ */
+unsigned char sinDAC[] = {
+    0b00001111, 0b00000111, 0b00000111, 0b00001011, 0b00000011,
+    0b00001101, 0b00000101, 0b00001001, 0b00001110, 0b00000110,
+    0b00000010, 0b00001100, 0b00000100, 0b00001000, 0b00000000,
+    0b00000000, 0b00000000, 0b00000000, 0b00001000, 0b00000100,
+    0b00001100, 0b00000010, 0b00000110, 0b00001110, 0b00001001,
+    0b00000101, 0b00001101, 0b00000011, 0b00001011, 0b00000111,
+    0b00000111, 0b00001111
+};
+
+/*
+ * Define global variables
+ */
+uint16_t tncTimerCompare, tncIndex, tncLength, secCount;
+uint8_t tncBitCount, tncBitTime, tncShift, tncRx, tncLastBit, tncMode, tncTransmit;
+uint8_t gpsMode;
+uint8_t tncBitStuff, tncBuffer[TNC_MAX_TX], serBuffer[SER_MAX_RX], serIndex, tncSSIDOverrideFlag, tncRemoteTick, index;
+
+volatile static unsigned int timeElapsed = 0;
+
+CONFIG_STRUCT config;
+
+/**
  *	Configure the TNC's callsign, SSID, and digipeat path.
  */
 void configDefault() {
@@ -298,7 +325,7 @@ void tncSendPacket(void) {
 			// wait for the timer to overflow.  This wait time determines the frequency of the sin
 		}
 		TMR2IF = 0; 
-		timeElapsed += PR2; 
+		timeElapsed += PR2;
 	} // end while loop
 }
 

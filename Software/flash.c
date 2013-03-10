@@ -1,3 +1,6 @@
+#include <htc.h>
+#include "flash.h"
+
 /*Software Driver
 
 SST26VF016 16 Mbit(2M x 8) Serial Quad I/O (SQI) Flash Memory
@@ -6,18 +9,18 @@ January 16, 2009, Rev. 1.0
 
 ABOUT THE SOFTWARE
 This application note provides software driver examples for SST26VF016,
-Serial Flash. Extensive comments are included in each routine to describe 
-the function of each routine.  The interface coding uses polling method 
+Serial Flash. Extensive comments are included in each routine to describe
+the function of each routine.  The interface coding uses polling method
 rather than the SPI protocol to interface with these serial devices.  The
 functions are differentiated below in terms of the communication protocols
-(uses Mode 0) and specific device operation instructions. This code has been 
+(uses Mode 0) and specific device operation instructions. This code has been
 designed to compile using the Keil compiler.
 
 
 ABOUT THE SST26VF016
 
-Companion product datasheets for the SST26VF016 should be reviewed in 
-conjunction with this application note for a complete understanding 
+Companion product datasheets for the SST26VF016 should be reviewed in
+conjunction with this application note for a complete understanding
 of the device.
 
 
@@ -26,20 +29,20 @@ Device Communication Protocol(pinout related) functions:
 Functions                    		Function
 ------------------------------------------------------------------
 init				Initializes clock to set up mode 0.
-Send_Byte			Sends one byte using SI pin to send and 
-				shift out 1-bit per clock rising edge
-Get_Byte			Receives one byte using SO pin to receive and shift 
-				in 1-bit per clock falling edge
+Send_Byte			Sends one byte using SI pin to send and
+                                shift out 1-bit per clock rising edge
+Get_Byte			Receives one byte using SO pin to receive and shift
+                                in 1-bit per clock falling edge
 
-SendSQI_Byte		 	Sends one byte using SI pin, SO pin, SIO2 pin and SIO3 pin to send and 
-				shift out 4-bit per clock rising edge
+SendSQI_Byte		 	Sends one byte using SI pin, SO pin, SIO2 pin and SIO3 pin to send and
+                                shift out 4-bit per clock rising edge
 
-GetSQI_Byte			Receives one byte using SI pin, SO pin, SIO2 pin and SIO3 pin to receive and shift 
-				in 4-bit per clock falling edge
+GetSQI_Byte			Receives one byte using SI pin, SO pin, SIO2 pin and SIO3 pin to receive and shift
+                                in 4-bit per clock falling edge
 
 Note:  The pin names of the SST26VF016 are used in this application note. The associated test code
 will not compile unless these pinouts (SCK, SI, SO, SIO2, SIO3, CE) are pre-defined on your
-software which should reflect your hardware interfaced. 	 
+software which should reflect your hardware interfaced.
 
 
 
@@ -50,8 +53,8 @@ Functions                    		Function
 ------------------------------------------------------------------
 
 NoOp				No Operation
-RSTEN				Enables acceptance of the RST (Reset) operation command 
-RST				Resets the device in to normal operating Ready mode			
+RSTEN				Enables acceptance of the RST (Reset) operation command
+RST				Resets the device in to normal operating Ready mode
 EQIO				Enables Quad I/O operation
 RSTQIO				Resets the device to 1-bit SPI protocol operation
 
@@ -93,25 +96,25 @@ Wait_Busy			Polls status register and waits until busy bit is low
 
 
 
-*/
+ */
 
-                                                                     
-//"C" LANGUAGE DRIVERS 
+
+//"C" LANGUAGE DRIVERS
 
 /********************************************************************/
 /* Copyright Silicon Storage Technology, Inc. (SST), 1994-2009	    */
 /* Example "C" language Driver of SST26VF016 Serial Flash	    */
 /* Hardik Patel, Silicon Storage Technology, Inc.                   */
 /*                                                                  */
-/* Revision 1.0, January 16, 2009			  	    */   
+/* Revision 1.0, January 16, 2009			  	    */
 /*                                                                  */
 /*								    */
 /********************************************************************/
 
 
-  /* Function Prototypes */
+/* Function Prototypes */
 
-void init();
+
 
 void NoOp();
 
@@ -125,88 +128,79 @@ unsigned char GetSQI_Nibble();
 
 unsigned char GetSQI_Byte();
 
-void CE_High(); 
+void CE_High();
 
-void CE_Low(); 
+void CE_Low();
 
-void ResetEn();
 
-void Reset();
 
-void En_QIO();
 
 void Reset_QIO();
 
-unsigned char Read(unsigned long Dst); 
+unsigned char Read(unsigned long Dst);
 
 void Read_Cont(unsigned long Dst, unsigned long no_bytes);
 
-unsigned char HighSpeed_Read(unsigned long Dst); 
+
 
 void HighSpeed_Read_Cont(unsigned long Dst, unsigned long no_bytes);
 
 void Set_Burst(unsigned char byte);
 
-void Read_Burst(unsigned long Dst, unsigned char burstlength); 
+void Read_Burst(unsigned long Dst, unsigned char burstlength);
 
-void Read_PI(unsigned char Dst, unsigned char datalength); 
+void Read_PI(unsigned char Dst, unsigned char datalength);
 
-void Read_Index(unsigned long Dst, unsigned char datalength); 
+void Read_Index(unsigned long Dst, unsigned char datalength);
 
-void Read_BlockIndex(unsigned char Dst, unsigned char datalength); 
+void Read_BlockIndex(unsigned char Dst, unsigned char datalength);
 
-void Jedec_ID_Read(); 
+void Jedec_ID_Read();
 
-void QuadJ_ID_Read();
+
 
 void Sector_Erase(unsigned long Dst);
 
-void Block_Erase(unsigned long Dst);
+
 
 void Chip_Erase();
 
-void Page_Program(unsigned long Dst);
+
 
 void Write_Suspend();
 
 void Write_Resume();
 
-void ReadSID(unsigned char Dst, unsigned char security_length); 
+void ReadSID(unsigned char Dst, unsigned char security_length);
 
-void ProgSID(); 
+void ProgSID();
 
-void LockSID(); 
+void LockSID();
 
-unsigned char Read_Status_Register();
-
-void flashWREN();
 
 void WRDI();
 
-void ReadBlockProtection(); 
 
-void WriteBlockProtection(); 
 
-void LockBlockProtection(); 
+void LockBlockProtection();
 
 void Wait_Busy();
 
- 
-unsigned char data_128[80] = {'h', 'i', ',', 't', 'h', 'e', 'r', 'e'};	/* global array to store read data */
 
-unsigned char block_protection_6[6] = {0, 0, 0, 0, 0, 0};	/* global array to store block_protection data */
+unsigned char data_128[80] = {'h', 'i', ',', 't', 'h', 'e', 'r', 'e'}; /* global array to store read data */
 
-unsigned char security_id_32[32];	/* global array to store security_id data */
+unsigned char block_protection_6[6] = {0, 0, 0, 0, 0, 0}; /* global array to store block_protection data */
 
-unsigned char  Manufacturer_Id, Device_Type, Device_Id; /* global array to store Manufacturer and Device id information */	
+unsigned char security_id_32[32]; /* global array to store security_id data */
 
-#define SCK RB6
-#define SI	RB4
-#define	CE	RC6
-#define	SO	RC4
-#define	SIO2 RC5
-#define	SIO3 RC7
-				
+
+#define SCK     RB6
+#define SI      RB4
+#define	CE      RC6
+#define	SO      RC4
+#define	SIO2    RC5
+#define	SIO3    RC7
+
 
 /************************************************************************/
 /* PROCEDURE: init							*/
@@ -219,10 +213,10 @@ unsigned char  Manufacturer_Id, Device_Type, Device_Id; /* global array to store
 /*									*/
 /* Output:								*/
 /*		SCK							*/
+
 /************************************************************************/
-void init()
-{
-	SCK = 0;	/* set clock to low initial state */
+void FlashInit() {
+    SCK = 0; /* set clock to low initial state */
 }
 
 /************************************************************************/
@@ -236,22 +230,21 @@ void init()
 /*									*/
 /* Output:								*/
 /*		SI							*/
+
 /************************************************************************/
-void Send_Byte(unsigned char out)
-{
-	
-	unsigned char i = 0;
-	for (i = 0; i < 8; i++)
-	{
-		
-		if ((out & 0x80) == 0x80)	/* check if MSB is high */
-			SI = 1;
-		else
-			SI = 0;			/* if not, set to low */
-		SCK = 1;			/* toggle clock high */
-		out = (out << 1);		/* shift 1 place for next bit */
-		SCK = 0;			/* toggle clock low */
-	}
+void Send_Byte(unsigned char out) {
+
+    unsigned char i = 0;
+    for (i = 0; i < 8; i++) {
+
+        if ((out & 0x80) == 0x80) /* check if MSB is high */
+            SI = 1;
+        else
+            SI = 0; /* if not, set to low */
+        SCK = 1; /* toggle clock high */
+        out = (out << 1); /* shift 1 place for next bit */
+        SCK = 0; /* toggle clock low */
+    }
 }
 
 
@@ -266,70 +259,80 @@ void Send_Byte(unsigned char out)
 /*									*/
 /* Output:								*/
 /*		SI, SO, SIO2, SIO3					*/
+
 /************************************************************************/
-void SendSQI_Byte(unsigned char out)
-{
+void SendSQI_Byte(unsigned char out) {
+    // make the pins outputs
+    TRISC &= ~0b10110000;
+    TRISB &= ~0b00010000;
+
+    if ((out & 0x80) == 0x80) /* check if MSB is high */ {
+        SIO3 = 1;
+    } else {
+        SIO3 = 0;
+    }
 
 
-	if ((out & 0x80) == 0x80)		/* check if MSB is high */
-			{SIO3 = 1;}
-		else						 
-			{SIO3 = 0;}
-		
-			
-		if ((out & 0x40) ==0x40)
-			{SIO2 = 1;}
-		else
-			{SIO2 = 0;}
-		
-		if ((out & 0x20) ==0x20)
-			{SO = 1;}
-		else
-			{SO = 0;}
-		
-		if ((out & 0x10) ==0x10)
-			{SI = 1;}
-		else
-			{SI = 0;}
-				
-		SCK = 1;			/* toggle clock high */
-					
-		SCK = 0;			/* toggle clock low */
+    if ((out & 0x40) == 0x40) {
+        SIO2 = 1;
+    } else {
+        SIO2 = 0;
+    }
 
-			
-	if ((out & 0x08) == 0x08)	        /* check if MSB is high */
-			{SIO3 = 1;}
-		else
-			{SIO3 = 0;}
-					
-		if ((out & 0x04) ==0x04)
-			{SIO2 = 1;}
-		else
-			{SIO2 = 0;}
-		
-		if ((out & 0x02) ==0x02)
-			{SO = 1;}
-		else
-			{SO = 0;}
-		
-		if ((out & 0x01) ==0x01)
-			{SI = 1;}
-		else
-			{SI = 0;}
-				
-		SCK = 1;			/* toggle clock high */
-		
-		SI=1;  //Set them as Inputs
-		SO=1;
-		SIO2=1;
-		SIO3=1;			
-				
-		SCK = 0;			/* toggle clock low */
+    if ((out & 0x20) == 0x20) {
+        SO = 1;
+    } else {
+        SO = 0;
+    }
 
-		   	
+    if ((out & 0x10) == 0x10) {
+        SI = 1;
+    } else {
+        SI = 0;
+    }
+
+    SCK = 1; /* toggle clock high */
+
+    SCK = 0; /* toggle clock low */
+
+
+    if ((out & 0x08) == 0x08) /* check if MSB is high */ {
+        SIO3 = 1;
+    } else {
+        SIO3 = 0;
+    }
+
+    if ((out & 0x04) == 0x04) {
+        SIO2 = 1;
+    } else {
+        SIO2 = 0;
+    }
+
+    if ((out & 0x02) == 0x02) {
+        SO = 1;
+    } else {
+        SO = 0;
+    }
+
+    if ((out & 0x01) == 0x01) {
+        SI = 1;
+    } else {
+        SI = 0;
+    }
+
+    SCK = 1; /* toggle clock high */
+    
+    SI = 1; //Set them as Inputs
+    SO = 1;
+    SIO2 = 1;
+    SIO3 = 1;
+
+    SCK = 0; /* toggle clock low */
+
+
 }
 
-   
+
 /************************************************************************/
 /* PROCEDURE: Get_Byte							*/
 /*									*/
@@ -341,26 +344,25 @@ void SendSQI_Byte(unsigned char out)
 /*									*/
 /* Output:								*/
 /*		None							*/
+
 /************************************************************************/
-unsigned char Get_Byte()
-{
-	unsigned char i = 0, in = 0, temp = 0;
-	for (i = 0; i < 8; i++)
-	{
-		in = (in << 1);		/* shift 1 place to the left or shift in 0 */
-		temp = SO;		/* save input */
-		SCK = 1;		/* toggle clock high */
-	if (temp == 1)			/* check to see if bit is high */
-		in = in | 0x01;		/* if high, make bit high */
+unsigned char Get_Byte() {
+    unsigned char i = 0, in = 0, temp = 0;
+    for (i = 0; i < 8; i++) {
+        in = (in << 1); /* shift 1 place to the left or shift in 0 */
+        temp = SO; /* save input */
+        SCK = 1; /* toggle clock high */
+        if (temp == 1) /* check to see if bit is high */
+            in = in | 0x01; /* if high, make bit high */
 
-		SCK = 0;		/* toggle clock low */
+        SCK = 0; /* toggle clock low */
 
-	}
-	return in;
+    }
+    return in;
 }
 
-      	  
-   
+
+
 /************************************************************************/
 /* PROCEDURE: GetSQI_Nibble						*/
 /*									*/
@@ -372,32 +374,40 @@ unsigned char Get_Byte()
 /*									*/
 /* Output:								*/
 /*		None							*/
-/************************************************************************/
-unsigned char GetSQI_Nibble()
-{
-	unsigned char in = 0, temp3 = 0, temp2 =0, temp1 = 0, temp0=0;
-	
-	temp3=SIO3;
-	temp2=SIO2;
-	temp1=SO;
-	temp0=SI;
-	SCK=1;
-	
-	if (temp3==1)
-	{in=1;}
-	in = (in<<1);
-	if (temp2==1)
-	{in=in|0x01;}
-	in = (in<<1);
-	if (temp1==1)
-	{in = in|0x01;}
-	in = (in<<1);
-	if (temp0==1)
-	{in = in|0x01;}
-	
-	SCK = 0;			/* toggle clock low */
 
-	return in;
+/************************************************************************/
+unsigned char GetSQI_Nibble() {
+    unsigned char in = 0, temp3 = 0, temp2 = 0, temp1 = 0, temp0 = 0;
+
+    // make the pins inputs
+    TRISC |= 0b10110000;
+    TRISB |= 0b00010000;
+
+    temp3 = SIO3;
+    temp2 = SIO2;
+    temp1 = SO;
+    temp0 = SI;
+    SCK = 1;
+
+    if (temp3 == 1) {
+        in = 1;
+    }
+    in = (in << 1);
+    if (temp2 == 1) {
+        in = in | 0x01;
+    }
+    in = (in << 1);
+    if (temp1 == 1) {
+        in = in | 0x01;
+    }
+    in = (in << 1);
+    if (temp0 == 1) {
+        in = in | 0x01;
+    }
+
+    SCK = 0; /* toggle clock low */
+
+    return in;
 }
 
 /************************************************************************/
@@ -411,17 +421,17 @@ unsigned char GetSQI_Nibble()
 /*									*/
 /* Output:								*/
 /*		None							*/
+
 /************************************************************************/
-unsigned char GetSQI_Byte()
-{
-	unsigned char temp, in = 0;
-	
-	in=GetSQI_Nibble();
-	in=(in<<4);
-	temp=GetSQI_Nibble();
-	in=in|temp;
-	
-	return in;	
+unsigned char GetSQI_Byte() {
+    unsigned char temp, in = 0;
+
+    in = GetSQI_Nibble();
+    in = (in << 4);
+    temp = GetSQI_Nibble();
+    in = in | temp;
+
+    return in;
 
 }
 
@@ -438,10 +448,10 @@ unsigned char GetSQI_Byte()
 /* Output:								*/
 /*		CE							*/
 /*									*/
+
 /************************************************************************/
-void CE_High() 
-{
-	CE = 1;				/* set CE high */
+void CE_High() {
+    CE = 1; /* set CE high */
 }
 
 /************************************************************************/
@@ -455,10 +465,10 @@ void CE_High()
 /* Output:								*/
 /*		CE							*/
 /*									*/
+
 /************************************************************************/
-void CE_Low() 
-{	
-	CE = 0;				/* clear CE low */
+void CE_Low() {
+    CE = 0; /* clear CE low */
 }
 
 
@@ -473,18 +483,18 @@ void CE_Low()
 /*									*/
 /* Returns:								*/
 /*		byte							*/
+
 /************************************************************************/
-unsigned char Read_Status_Register()
-{
-	unsigned char byte = 0;
-	CE_Low();			/* enable device */
-	SendSQI_Byte(0x05);		/* send RDSR command */
-	byte = GetSQI_Byte();		/* receive byte */
-	CE_High();			/* disable device */
-	return byte;
+unsigned char Read_Status_Register() {
+    unsigned char byte = 0;
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x05); /* send RDSR command */
+    byte = GetSQI_Byte(); /* receive byte */
+    CE_High(); /* disable device */
+    return byte;
 }
 
- 
+
 
 /************************************************************************/
 /* PROCEDURE: WREN							*/
@@ -496,12 +506,12 @@ unsigned char Read_Status_Register()
 /*									*/
 /* Returns:								*/
 /*		Nothing							*/
+
 /************************************************************************/
-void flashWREN()
-{
-	CE_Low();			/* enable device */
-	SendSQI_Byte(0x06);		/* send WREN command */
-	CE_High();			/* disable device */
+void flashWREN() {
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x06); /* send WREN command */
+    CE_High(); /* disable device */
 }
 
 /************************************************************************/
@@ -514,12 +524,12 @@ void flashWREN()
 /*									*/
 /* Returns:								*/
 /*		Nothing							*/
+
 /************************************************************************/
-void WRDI()
-{
-	CE_Low();			/* enable device */
-	SendSQI_Byte(0x04);		/* send WRDI command */
-	CE_High();			/* disable device */
+void WRDI() {
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x04); /* send WRDI command */
+    CE_High(); /* disable device */
 }
 
 /************************************************************************/
@@ -535,18 +545,18 @@ void WRDI()
 /*		Manufacture's ID = BFh, Device Type =26h,		*/
 /*		Device ID = 01h						*/
 /*									*/
+
 /************************************************************************/
 
-void QuadJ_ID_Read()
-{
+void QuadJ_ID_Read() {
 
-	CE_Low();			/* enable device */
-	SendSQI_Byte(0xAF);		/* send read ID command (90h or ABh) */
-   	Manufacturer_Id = GetSQI_Byte();/* receive byte */
-  	Device_Type = GetSQI_Byte();	/* receive byte */
-  	Device_Id = GetSQI_Byte();	/* receive byte */
-	CE_High();			/* disable device */
-	
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0xAF); /* send read ID command (90h or ABh) */
+    Manufacturer_Id = GetSQI_Byte(); /* receive byte */
+    Device_Type = GetSQI_Byte(); /* receive byte */
+    Device_Id = GetSQI_Byte(); /* receive byte */
+    CE_High(); /* disable device */
+
 }
 
 /************************************************************************/
@@ -562,24 +572,24 @@ void QuadJ_ID_Read()
 /*		Manufacture's ID = BFh, Device Type (26h), 		*/
 /*		and Device ID (01h)					*/
 /*									*/
+
 /************************************************************************/
-void Jedec_ID_Read() 
-{
+void Jedec_ID_Read() {
 
 
-	CE_Low();			/* enable device */
-	Send_Byte(0x9F);		/* send JEDEC ID command (9Fh) */
-   	Manufacturer_Id = Get_Byte();	/* receive byte */
-  	Device_Type = Get_Byte();	/* receive byte */
-  	Device_Id = Get_Byte();		/* receive byte */
+    CE_Low(); /* enable device */
+    Send_Byte(0x9F); /* send JEDEC ID command (9Fh) */
+    Manufacturer_Id = Get_Byte(); /* receive byte */
+    Device_Type = Get_Byte(); /* receive byte */
+    Device_Id = Get_Byte(); /* receive byte */
 
-	CE_High();			/* disable device */
-} 
+    CE_High(); /* disable device */
+}
 
 
 /************************************************************************/
 /* PROCEDURE:	Read							*/
-/*									*/		
+/*									*/
 /* This procedure reads one address of the device.  It will return the 	*/
 /* byte read in variable byte.						*/
 /*									*/
@@ -592,25 +602,25 @@ void Jedec_ID_Read()
 /* Returns:								*/
 /*		byte							*/
 /*									*/
-/************************************************************************/
-unsigned char Read(unsigned long Dst) 
-{
-	unsigned char byte = 0;	
 
-	CE_Low();			/* enable device */
-	Send_Byte(0x03); 		/* read command */
-	Send_Byte(((Dst & 0xFFFFFF) >> 16));	/* send 3 address bytes */
-	Send_Byte(((Dst & 0xFFFF) >> 8));
-	Send_Byte(Dst & 0xFF);
-	byte = Get_Byte();
-	CE_High();			/* disable device */
-	return byte;			/* return one byte read */
+/************************************************************************/
+unsigned char Read(unsigned long Dst) {
+    unsigned char byte = 0;
+
+    CE_Low(); /* enable device */
+    Send_Byte(0x03); /* read command */
+    Send_Byte(((Dst & 0xFFFFFF) >> 16)); /* send 3 address bytes */
+    Send_Byte(((Dst & 0xFFFF) >> 8));
+    Send_Byte(Dst & 0xFF);
+    byte = Get_Byte();
+    CE_High(); /* disable device */
+    return byte; /* return one byte read */
 }
 
 
 /************************************************************************/
 /* PROCEDURE:	Read_Cont						*/
-/*									*/		
+/*									*/
 /* This procedure reads multiple addresses of the device and stores	*/
 /* data into 128 byte buffer. Maximum number of bytes read 		*/
 /* is limited 128 bytes							*/
@@ -622,22 +632,22 @@ unsigned char Read(unsigned long Dst)
 /* Returns:								*/
 /*		Nothing							*/
 /*									*/
+
 /************************************************************************/
-void Read_Cont(unsigned long Dst, unsigned long no_bytes)
-{
-	unsigned long i = 0;
-	CE_Low();				/* enable device */
-	Send_Byte(0x03); 			/* read command */
-	Send_Byte(((Dst & 0xFFFFFF) >> 16)); 	/* send 3 address bytes */
-	Send_Byte(((Dst & 0xFFFF) >> 8));
-	Send_Byte(Dst & 0xFF);
-	if (no_bytes>128)
-	{no_bytes=128;}
-	for (i = 1; i < no_bytes; i++)		/* read until no_bytes is reached */
-	{
-		data_128[i-1] = Get_Byte();	
-	}
-	CE_High();				/* disable device */
+void Read_Cont(unsigned long Dst, unsigned long no_bytes) {
+    unsigned long i = 0;
+    CE_Low(); /* enable device */
+    Send_Byte(0x03); /* read command */
+    Send_Byte(((Dst & 0xFFFFFF) >> 16)); /* send 3 address bytes */
+    Send_Byte(((Dst & 0xFFFF) >> 8));
+    Send_Byte(Dst & 0xFF);
+    if (no_bytes > 128) {
+        no_bytes = 128;
+    }
+    for (i = 1; i < no_bytes; i++) /* read until no_bytes is reached */ {
+        data_128[i - 1] = Get_Byte();
+    }
+    CE_High(); /* disable device */
 
 }
 
@@ -645,7 +655,7 @@ void Read_Cont(unsigned long Dst, unsigned long no_bytes)
 
 /************************************************************************/
 /* PROCEDURE:	HighSpeed_Read						*/
-/*									*/		
+/*									*/
 /* This procedure reads one address of the device.  It will return the 	*/
 /* byte read in variable byte.						*/
 /*									*/
@@ -658,26 +668,26 @@ void Read_Cont(unsigned long Dst, unsigned long no_bytes)
 /* Returns:								*/
 /*		byte							*/
 /*									*/
-/************************************************************************/
-unsigned char HighSpeed_Read(unsigned long Dst) 
-{
-	unsigned char byte = 0;	
 
-	CE_Low();				/* enable device */
-	Send_Byte(0x0B); 			/* read command */
-	Send_Byte(((Dst & 0xFFFFFF) >> 16));	/* send 3 address bytes */
-	Send_Byte(((Dst & 0xFFFF) >> 8));
-	Send_Byte(Dst & 0xFF);
-	Send_Byte(0xFF);			/*dummy byte*/
-	byte = Get_Byte();
-	CE_High();				/* disable device */
-	return byte;				/* return one byte read */
+/************************************************************************/
+unsigned char HighSpeed_Read(unsigned long Dst) {
+    unsigned char byte = 0;
+
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x0B); /* read command */
+    SendSQI_Byte(((Dst & 0xFFFFFF) >> 16)); /* send 3 address bytes */
+    SendSQI_Byte(((Dst & 0xFFFF) >> 8));
+    SendSQI_Byte(Dst & 0xFF);
+    SendSQI_Byte(0xFF); /*dummy byte*/
+    byte = GetSQI_Byte();
+    CE_High(); /* disable device */
+    return byte; /* return one byte read */
 }
 
- 
+
 /************************************************************************/
 /* PROCEDURE:	HighSpeed_Read_Cont					*/
-/*									*/		
+/*									*/
 /* This procedure reads multiple addresses of the device and stores	*/
 /* data into 128 byte buffer. Maximum number of bytes read is 		*/
 /* limited to 128 bytes							*/
@@ -689,24 +699,24 @@ unsigned char HighSpeed_Read(unsigned long Dst)
 /* Returns:								*/
 /*		Nothing							*/
 /*									*/
-/************************************************************************/
-void HighSpeed_Read_Cont(unsigned long Dst, unsigned long no_bytes)
-{
-	unsigned long i = 0;
-	CE_Low();				/* enable device */
-	Send_Byte(0x0B); 			/* read command */
-	Send_Byte(((Dst & 0xFFFFFF) >> 16)); 	/* send 3 address bytes */
-	Send_Byte(((Dst & 0xFFFF) >> 8));
-	Send_Byte(Dst & 0xFF);
-	Send_Byte(0xFF);			/* dummy byte*/
-	if (no_bytes>128)
-	{no_bytes=128;}
 
-	for (i = 1; i < no_bytes; i++)		/* read until no_bytes is reached */
-	{
-		data_128[i-1] = Get_Byte();	
-	}
-	CE_High();				/* disable device */
+/************************************************************************/
+void HighSpeed_Read_Cont(unsigned long Dst, unsigned long no_bytes) {
+    unsigned long i = 0;
+    CE_Low(); /* enable device */
+    Send_Byte(0x0B); /* read command */
+    Send_Byte(((Dst & 0xFFFFFF) >> 16)); /* send 3 address bytes */
+    Send_Byte(((Dst & 0xFFFF) >> 8));
+    Send_Byte(Dst & 0xFF);
+    Send_Byte(0xFF); /* dummy byte*/
+    if (no_bytes > 128) {
+        no_bytes = 128;
+    }
+
+    for (i = 1; i < no_bytes; i++) /* read until no_bytes is reached */ {
+        data_128[i - 1] = Get_Byte();
+    }
+    CE_High(); /* disable device */
 }
 
 /************************************************************************/
@@ -724,19 +734,19 @@ void HighSpeed_Read_Cont(unsigned long Dst, unsigned long no_bytes)
 /* Returns:								*/
 /*		Nothing							*/
 /*									*/
+
 /************************************************************************/
-void Set_Burst(unsigned char byte)
-{
-	CE_Low();				/* enable device */
-	SendSQI_Byte(0xC0); 			/* send Byte Program command */
-	SendSQI_Byte(byte);			/* send byte to be programmed */
-	CE_High();				/* disable device */
+void Set_Burst(unsigned char byte) {
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0xC0); /* send Byte Program command */
+    SendSQI_Byte(byte); /* send byte to be programmed */
+    CE_High(); /* disable device */
 }
 
 
 /************************************************************************/
 /* PROCEDURE:	Read_Burst						*/
-/*									*/		
+/*									*/
 /* This procedure reads multiple (burst) address of the device.		*/
 /* The data is stored in an array. 					*/
 /*									*/
@@ -749,35 +759,35 @@ void Set_Burst(unsigned char byte)
 /* Returns:								*/
 /*		byte							*/
 /*									*/
+
 /************************************************************************/
-void Read_Burst(unsigned long Dst, unsigned char burstlength) 
-{
-	unsigned char i;
-	i=0;	
+void Read_Burst(unsigned long Dst, unsigned char burstlength) {
+    unsigned char i;
+    i = 0;
 
-	CE_Low();				/* enable device */
-	SendSQI_Byte(0x0C); 			/* read command */
-	SendSQI_Byte(((Dst & 0xFFFFFF) >> 16));	/* send 3 address bytes */
-	SendSQI_Byte(((Dst & 0xFFFF) >> 8));
-	SendSQI_Byte(Dst & 0xFF);
-	SendSQI_Byte(Dst & 0xFF);	   	/* Dummy cycle */
-	
-	if (burstlength>128)
-	{burstlength=128;}	
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x0C); /* read command */
+    SendSQI_Byte(((Dst & 0xFFFFFF) >> 16)); /* send 3 address bytes */
+    SendSQI_Byte(((Dst & 0xFFFF) >> 8));
+    SendSQI_Byte(Dst & 0xFF);
+    SendSQI_Byte(Dst & 0xFF); /* Dummy cycle */
 
-	for (i=0;i<=(burstlength-1);i++)
-	{
-	data_128[i]=GetSQI_Byte();		
-	}
+    if (burstlength > 128) {
+        burstlength = 128;
+    }
 
-	CE_High();				/* disable device */
+    for (i = 0; i <= (burstlength - 1); i++) {
+        data_128[i] = GetSQI_Byte();
+    }
+
+    CE_High(); /* disable device */
 
 }
 
 
 /************************************************************************/
 /* PROCEDURE:	Read_PI							*/
-/*									*/		
+/*									*/
 /* This procedure increments the address counter to within a page of 256*/
 /* bytes and begins reading from the new address location. The number of*/
 /* address read is determined by the datalenght				*/
@@ -791,36 +801,36 @@ void Read_Burst(unsigned long Dst, unsigned char burstlength)
 /* Returns:								*/
 /*	 data array							*/
 /*									*/
+
 /************************************************************************/
-void Read_PI(unsigned char Dst, unsigned char datalength) 
-{
-	unsigned char i;
-	i=0;	
+void Read_PI(unsigned char Dst, unsigned char datalength) {
+    unsigned char i;
+    i = 0;
 
-	CE_Low();			/* enable device */
-	SendSQI_Byte(0x08); 		/* read command */
-	SendSQI_Byte(Dst & 0xFF);
-	SendSQI_Byte(Dst & 0xFF); 	/* Dummy cycle */
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x08); /* read command */
+    SendSQI_Byte(Dst & 0xFF);
+    SendSQI_Byte(Dst & 0xFF); /* Dummy cycle */
 
-	if (datalength>128)
-	{datalength=128;}	
-	
+    if (datalength > 128) {
+        datalength = 128;
+    }
 
-	for (i=0;i<=(datalength-1);i++)
-	{
-		data_128[i]=GetSQI_Byte();
-	}
 
-	CE_High();			/* disable device */
+    for (i = 0; i <= (datalength - 1); i++) {
+        data_128[i] = GetSQI_Byte();
+    }
+
+    CE_High(); /* disable device */
 
 }
 
 
 /************************************************************************/
 /* PROCEDURE:	Read_Index						*/
-/*									*/		
+/*									*/
 /* This procedure increments the address counter to within a 		*/
-/* 64Kbyte block and begins reading from the new address location.	*/							
+/* 64Kbyte block and begins reading from the new address location.	*/
 /*  The number of address read is determined by the datalenght		*/
 /*									*/
 /*									*/
@@ -832,29 +842,29 @@ void Read_PI(unsigned char Dst, unsigned char datalength)
 /* Returns:								*/
 /*		data array						*/
 /*									*/
+
 /************************************************************************/
-void Read_Index(unsigned long Dst, unsigned char datalength) 
-{
-	unsigned char i;
-	i=0;	
+void Read_Index(unsigned long Dst, unsigned char datalength) {
+    unsigned char i;
+    i = 0;
 
-	CE_Low();			/* enable device */
-	SendSQI_Byte(0x09); 		/* read command */
-	SendSQI_Byte(((Dst & 0xFFFF) >> 8));
-	SendSQI_Byte(Dst & 0xFF);
-	SendSQI_Byte(Dst & 0xFF); // Dummy cycle
-	SendSQI_Byte(Dst & 0xFF); // Dummy cycle
-	
-	if (datalength>128)
-	{datalength=128;}	
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x09); /* read command */
+    SendSQI_Byte(((Dst & 0xFFFF) >> 8));
+    SendSQI_Byte(Dst & 0xFF);
+    SendSQI_Byte(Dst & 0xFF); // Dummy cycle
+    SendSQI_Byte(Dst & 0xFF); // Dummy cycle
+
+    if (datalength > 128) {
+        datalength = 128;
+    }
 
 
-	for (i=0;i<=(datalength-1);i++)
-	{
-	data_128[i]=GetSQI_Byte();	
-	}
+    for (i = 0; i <= (datalength - 1); i++) {
+        data_128[i] = GetSQI_Byte();
+    }
 
-	CE_High();			/* disable device */
+    CE_High(); /* disable device */
 
 }
 
@@ -862,7 +872,7 @@ void Read_Index(unsigned long Dst, unsigned char datalength)
 
 /************************************************************************/
 /* PROCEDURE:	Read_BlockIndex						*/
-/*									*/		
+/*									*/
 /* This procedure increments the address counter a specified number 	*/
 /* of 64Kbyte block and begins reading from the new address location.	*/
 /*  The number of address read is determined by the datalenght		*/
@@ -875,28 +885,28 @@ void Read_Index(unsigned long Dst, unsigned char datalength)
 /* Returns:								*/
 /*		data array						*/
 /*									*/
+
 /************************************************************************/
-void Read_BlockIndex(unsigned char Dst, unsigned char datalength) 
-{
-	unsigned char i;
-	i=0;	
+void Read_BlockIndex(unsigned char Dst, unsigned char datalength) {
+    unsigned char i;
+    i = 0;
 
-	CE_Low();			/* enable device */
-	SendSQI_Byte(0x10); 		/* read command */
-	SendSQI_Byte(Dst & 0xFF);
-	SendSQI_Byte(Dst & 0xFF); // Dummy cycle
-	SendSQI_Byte(Dst & 0xFF); // Dummy cycle
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x10); /* read command */
+    SendSQI_Byte(Dst & 0xFF);
+    SendSQI_Byte(Dst & 0xFF); // Dummy cycle
+    SendSQI_Byte(Dst & 0xFF); // Dummy cycle
 
-	if (datalength>128)
-	{datalength=128;}	
-	
-	for (i=0;i<=(datalength-1);i++)
-	{
- 	data_128[i]=GetSQI_Byte();	
-	}
+    if (datalength > 128) {
+        datalength = 128;
+    }
+
+    for (i = 0; i <= (datalength - 1); i++) {
+        data_128[i] = GetSQI_Byte();
+    }
 
 
-	CE_High();			/* disable device */
+    CE_High(); /* disable device */
 
 }
 
@@ -924,23 +934,23 @@ void Read_BlockIndex(unsigned char Dst, unsigned char datalength)
 /* Returns:								*/
 /*		Nothing							*/
 /*									*/
+
 /************************************************************************/
-void Page_Program(unsigned long Dst)
-{
-	unsigned char i;
-	i=0;	
-  
-	CE_Low();				/* enable device */
-	SendSQI_Byte(0x02); 			/* send Byte Program command */
-	SendSQI_Byte(((Dst & 0xFFFFFF) >> 16));	/* send 3 address bytes */
-	SendSQI_Byte(((Dst & 0xFFFF) >> 8));
-	SendSQI_Byte(Dst & 0xFF);
-	for (i=0;i<=50;i++)
-	{	SendSQI_Byte(data_128[i]);	/* send byte to be programmed */
-	}
-	CE_High();				/* disable device */
+void Page_Program(unsigned long Dst) {
+    unsigned char i;
+    i = 0;
+
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x02); /* send Byte Program command */
+    SendSQI_Byte(((Dst & 0xFFFFFF) >> 16)); /* send 3 address bytes */
+    SendSQI_Byte(((Dst & 0xFFFF) >> 8));
+    SendSQI_Byte(Dst & 0xFF);
+    for (i = 0; i <= 50; i++) {
+        SendSQI_Byte(data_128[i]); /* send byte to be programmed */
+    }
+    CE_High(); /* disable device */
 }
- 
+
 /************************************************************************/
 /* PROCEDURE: Chip_Erase						*/
 /*									*/
@@ -951,12 +961,12 @@ void Page_Program(unsigned long Dst)
 /*									*/
 /* Returns:								*/
 /*		Nothing							*/
+
 /************************************************************************/
-void Chip_Erase()
-{						
-	CE_Low();				/* enable device */
-	SendSQI_Byte(0xC7);			/* send Chip Erase command (C7h) */
-	CE_High();				/* disable device */
+void Chip_Erase() {
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0xC7); /* send Chip Erase command (C7h) */
+    CE_High(); /* disable device */
 }
 
 /************************************************************************/
@@ -969,17 +979,17 @@ void Chip_Erase()
 /*									*/
 /* Returns:								*/
 /*		Nothing							*/
+
 /************************************************************************/
-void Sector_Erase(unsigned long Dst)
-{
+void Sector_Erase(unsigned long Dst) {
 
 
-	CE_Low();				/* enable device */
-	SendSQI_Byte(0x20);			/* send Sector Erase command */
-	SendSQI_Byte(((Dst & 0xFFFFFF) >> 16)); /* send 3 address bytes */
-	SendSQI_Byte(((Dst & 0xFFFF) >> 8));
-	SendSQI_Byte(Dst & 0xFF);
-	CE_High();				/* disable device */
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x20); /* send Sector Erase command */
+    SendSQI_Byte(((Dst & 0xFFFFFF) >> 16)); /* send 3 address bytes */
+    SendSQI_Byte(((Dst & 0xFFFF) >> 8));
+    SendSQI_Byte(Dst & 0xFF);
+    CE_High(); /* disable device */
 }
 
 /************************************************************************/
@@ -992,15 +1002,15 @@ void Sector_Erase(unsigned long Dst)
 /*									*/
 /* Returns:								*/
 /*		Nothing							*/
+
 /************************************************************************/
-void Block_Erase(unsigned long Dst)
-{
-	CE_Low();				/* enable device */
-	SendSQI_Byte(0xD8);			/* send Block Erase command */
-	SendSQI_Byte(((Dst & 0xFFFFFF) >> 16));	/* send 3 address bytes */
-	SendSQI_Byte(((Dst & 0xFFFF) >> 8));
-	SendSQI_Byte(Dst & 0xFF);
-	CE_High();				/* disable device */
+void Block_Erase(unsigned long Dst) {
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0xD8); /* send Block Erase command */
+    SendSQI_Byte(((Dst & 0xFFFFFF) >> 16)); /* send 3 address bytes */
+    SendSQI_Byte(((Dst & 0xFFFF) >> 8));
+    SendSQI_Byte(Dst & 0xFF);
+    CE_High(); /* disable device */
 }
 
 
@@ -1015,12 +1025,12 @@ void Block_Erase(unsigned long Dst)
 /*									*/
 /* Returns:								*/
 /*		Nothing							*/
+
 /************************************************************************/
-void NoOp()
-{
-	CE_Low();				/* enable device */
-	SendSQI_Byte(0x00);		
-	CE_High();				/* disable device */
+void NoOp() {
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x00);
+    CE_High(); /* disable device */
 }
 
 
@@ -1033,12 +1043,12 @@ void NoOp()
 /*									*/
 /* Returns:								*/
 /*		Nothing							*/
+
 /************************************************************************/
-void ResetEn()
-{
-	CE_Low();				/* enable device */
-	SendSQI_Byte(0x66);			
-	CE_High();				/* disable device */
+void ResetEn() {
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x66);
+    CE_High(); /* disable device */
 }
 
 
@@ -1052,15 +1062,15 @@ void ResetEn()
 /*									*/
 /* Returns:								*/
 /*		Nothing							*/
+
 /************************************************************************/
-void Reset()
-{
-	CE_Low();				/* enable device */
-	SendSQI_Byte(0x99);		
-	CE_High();				/* disable device */
+void ResetFlash() {
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x99);
+    CE_High(); /* disable device */
 }
 
-			  
+
 /************************************************************************/
 /* PROCEDURE: En_QIO							*/
 /*									*/
@@ -1070,12 +1080,12 @@ void Reset()
 /*									*/
 /* Returns:								*/
 /*		Nothing							*/
+
 /************************************************************************/
-void En_QIO()
-{
-	CE_Low();				/* enable device */
-	Send_Byte(0x38);		
-	CE_High();				/* disable device */
+void En_QIO() {
+    CE_Low(); /* enable device */
+    Send_Byte(0x38);
+    CE_High(); /* disable device */
 }
 
 
@@ -1088,12 +1098,12 @@ void En_QIO()
 /*									*/
 /* Returns:								*/
 /*		Nothing							*/
+
 /************************************************************************/
-void Reset_QIO()
-{
-	CE_Low();				/* enable device */
-	SendSQI_Byte(0xff);		
-	CE_High();				/* disable device */
+void Reset_QIO() {
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0xff);
+    CE_High(); /* disable device */
 }
 
 
@@ -1108,12 +1118,12 @@ void Reset_QIO()
 /*									*/
 /* Returns:								*/
 /*		Nothing							*/
+
 /************************************************************************/
-void Write_Suspend()
-{
-	CE_Low();				/* enable device */
-	SendSQI_Byte(0xb0);		
-	CE_High();				/* disable device */
+void Write_Suspend() {
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0xb0);
+    CE_High(); /* disable device */
 }
 
 
@@ -1127,18 +1137,18 @@ void Write_Suspend()
 /*									*/
 /* Returns:								*/
 /*		Nothing							*/
+
 /************************************************************************/
-void Write_Resume()
-{
-	CE_Low();				/* enable device */
-	SendSQI_Byte(0x30);			
-	CE_High();				/* disable device */
+void Write_Resume() {
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x30);
+    CE_High(); /* disable device */
 }
 
 
- /***********************************************************************/
+/***********************************************************************/
 /* PROCEDURE:	ReadSID	(Read Security ID)				*/
-/*									*/		
+/*									*/
 /* This procedure reads the security ID					*/
 /*									*/
 /*									*/
@@ -1150,34 +1160,34 @@ void Write_Resume()
 /* Returns:								*/
 /*		None							*/
 /*									*/
+
 /************************************************************************/
-void ReadSID(unsigned char Dst, unsigned char security_length) 
-{
-	unsigned char byte = 0;	
-	unsigned char i;
-	i=0;	
-	 	if (security_length>32)
-	{ security_length=32;}
+void ReadSID(unsigned char Dst, unsigned char security_length) {
+    unsigned char byte = 0;
+    unsigned char i;
+    i = 0;
+    if (security_length > 32) {
+        security_length = 32;
+    }
 
-	CE_Low();				/* enable device */
-	SendSQI_Byte(0x88); 		
-	SendSQI_Byte(Dst & 0xFF);
-	SendSQI_Byte(Dst & 0xFF);  //dummy
-	
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x88);
+    SendSQI_Byte(Dst & 0xFF);
+    SendSQI_Byte(Dst & 0xFF); //dummy
 
 
-	for (i=0;i<security_length;i++)
-	{ 
-		security_id_32[i] = GetSQI_Byte(); 
-	}
-	CE_High();				/* disable device */
+
+    for (i = 0; i < security_length; i++) {
+        security_id_32[i] = GetSQI_Byte();
+    }
+    CE_High(); /* disable device */
 }
 
 
 
 /************************************************************************/
 /* PROCEDURE:	ProgSID	(Program Security ID)				*/
-/*									*/		
+/*									*/
 /* This procedure programs the security ID				*/
 /*									*/
 /*									*/
@@ -1189,29 +1199,28 @@ void ReadSID(unsigned char Dst, unsigned char security_length)
 /* Returns:								*/
 /*	None								*/
 /*									*/
+
 /************************************************************************/
-void ProgSID() 
-{
-	unsigned char byte = 0;	
-	unsigned char i;
-	i=0;	
+void ProgSID() {
+    unsigned char byte = 0;
+    unsigned char i;
+    i = 0;
 
-	CE_Low();			/* enable device */
-	SendSQI_Byte(0xa5); 		
-	SendSQI_Byte(0x08);	  	/*address of user programmable area*/
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0xa5);
+    SendSQI_Byte(0x08); /*address of user programmable area*/
 
 
-	for (i=0;i<24;i++)
-	{	
-	SendSQI_Byte(security_id_32[i+8]);
-	}
-	CE_High();			/* disable device */
+    for (i = 0; i < 24; i++) {
+        SendSQI_Byte(security_id_32[i + 8]);
+    }
+    CE_High(); /* disable device */
 }
 
 
 /************************************************************************/
 /* PROCEDURE:	LockSID							*/
-/*									*/		
+/*									*/
 /* This procedure Locks the security ID setting				*/
 /*									*/
 /*									*/
@@ -1223,21 +1232,21 @@ void ProgSID()
 /* Returns:								*/
 /*		None							*/
 /*									*/
-/************************************************************************/
-void LockSID() 
-{
 
-	CE_Low();			/* enable device */
-	SendSQI_Byte(0x85); 		
-	CE_High();			/* disable device */
+/************************************************************************/
+void LockSID() {
+
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x85);
+    CE_High(); /* disable device */
 }
 
 
 
 
-  /**********************************************************************/
+/**********************************************************************/
 /* PROCEDURE:	ReadBlockProtection					*/
-/*									*/		
+/*									*/
 /* This procedure reads block protection register			*/
 /*									*/
 /*									*/
@@ -1249,27 +1258,27 @@ void LockSID()
 /* Returns:								*/
 /*		None							*/
 /*									*/
+
 /************************************************************************/
-void ReadBlockProtection() 
-{
-	unsigned char byte = 0;	
- 	unsigned char i;
-	i=0;	
+void ReadBlockProtection() {
+    unsigned char byte = 0;
+    unsigned char i;
+    i = 0;
 
-	CE_Low();			/* enable device */
-	SendSQI_Byte(0x72); 		
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x72);
 
-	for (i=6;i>0;i--)
-	{	block_protection_6[i-1] = GetSQI_Byte();
-	}
-	CE_High();			/* disable device */
+    for (i = 6; i > 0; i--) {
+        block_protection_6[i - 1] = GetSQI_Byte();
+    }
+    CE_High(); /* disable device */
 }
 
 
- 
+
 /************************************************************************/
 /* PROCEDURE:	WriteBlockProtection					*/
-/*									*/		
+/*									*/
 /* This procedure writes to block protection register			*/
 /*									*/
 /*									*/
@@ -1281,27 +1290,26 @@ void ReadBlockProtection()
 /* Returns:								*/
 /*	None								*/
 /*									*/
+
 /************************************************************************/
-void WriteBlockProtection() 
-{
-	unsigned char byte = 0;	
-   	unsigned char i;
-	i=0;	
+void WriteBlockProtection() {
+    unsigned char byte = 0;
+    unsigned char i;
+    i = 0;
 
-	CE_Low();			/* enable device */
-	SendSQI_Byte(0x42); 		/* read command */
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x42); /* read command */
 
-	for (i=6;i>0;i--)
-	{	
-		SendSQI_Byte(block_protection_6[i-1]);
-	}
-	CE_High();			/* disable device */
+    for (i = 6; i > 0; i--) {
+        SendSQI_Byte(block_protection_6[i - 1]);
+    }
+    CE_High(); /* disable device */
 }
 
 
 /************************************************************************/
 /* PROCEDURE:	LockBlockProtection					*/
-/*									*/		
+/*									*/
 /* This procedure locks the block protection register			*/
 /*									*/
 /*									*/
@@ -1313,13 +1321,13 @@ void WriteBlockProtection()
 /* Returns:								*/
 /*		None							*/
 /*									*/
-/************************************************************************/
-void LockBlockProtection() 
-{
 
-	CE_Low();			/* enable device */
-	SendSQI_Byte(0x8d); 		/* read command */
-	CE_High();			/* disable device */
+/************************************************************************/
+void LockBlockProtection() {
+
+    CE_Low(); /* enable device */
+    SendSQI_Byte(0x8d); /* read command */
+    CE_High(); /* disable device */
 }
 
 
@@ -1327,7 +1335,7 @@ void LockBlockProtection()
 /************************************************************************/
 /* PROCEDURE: Wait_Busy							*/
 /*									*/
-/* This procedure waits until device is no longer busy.			*/ 	
+/* This procedure waits until device is no longer busy.			*/
 /* 									*/
 /*									*/
 /* Input:								*/
@@ -1335,10 +1343,10 @@ void LockBlockProtection()
 /*									*/
 /* Returns:								*/
 /*		Nothing							*/
+
 /************************************************************************/
-void Wait_Busy()
-{
-	while ((Read_Status_Register()& 0x80) == 0x80)	/* wait until not busy */
-		Read_Status_Register();
+void Wait_Busy() {
+    while ((Read_Status_Register()& 0x80) == 0x80) /* wait until not busy */
+        Read_Status_Register();
 }
 
