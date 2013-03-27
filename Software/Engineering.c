@@ -2,7 +2,9 @@
 #include "ax25.h"
 #include "flash.h"
 #include <stdio.h>
+#include <htc.h>
 
+#define _XTAL_FREQ 32000000
 void EngineeringConsole() {
     uint8_t temp = 0;
 
@@ -16,14 +18,20 @@ void EngineeringConsole() {
                 putst("4: Erase flash sector 0\n");
                 putst("5: Program predtermined pattern to flash sector 0\n");
                 putst("6: Read flash sector 0\n");
-                //putst("7: Read block protection register\n");
-                //putst("8: Write block protection register to all writeable\n");
+                putst("7: Read block protection register\n");
+                putst("8: Write block protection register to all writeable\n");
+                putst("9: Calibrate the mark tone\n");
+                putst("a: Calibrate the space tone\n");
                 break;
 
             case '1':
+                RA2 = 1;
                 tncPreparePacket("$GPGGA,,3436.89881,N,11227.02683,W,7,00,,,,,,,*42");
                 // Send it
                 tncSendPacket();
+
+                __delay_ms(10);
+                RA2 = 0;
                 break;
 
             case '2':
@@ -80,7 +88,15 @@ void EngineeringConsole() {
                 flashWREN();
                 WriteBlockProtection();
                 putst("Wrote block protection reg to zeros!\n");
-                break; 
+                break;
+
+            case '9':
+                calTones(1);
+                break;
+
+            case 'a':
+                calTones(0);
+                break;
 
             default:
                 putst("Unknown command, press h for help\r\n");

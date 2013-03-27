@@ -96,7 +96,7 @@ void sysInit(void) {
     // Timer 1 setup
     T1CON = 0b00110001;
     TMR1IE = 0x01;
-    T2CON = 0b00000100;
+    T2CON = 0b00001100;
 
     // GIE, PEIE Interrupts
     INTCON = 0b11000000;

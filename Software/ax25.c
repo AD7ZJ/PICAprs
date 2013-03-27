@@ -15,13 +15,9 @@
  * on the particular HW configuration :-)
  */
 unsigned char sinDAC[] = {
-    0b00001111, 0b00000111, 0b00000111, 0b00001011, 0b00000011,
-    0b00001101, 0b00000101, 0b00001001, 0b00001110, 0b00000110,
-    0b00000010, 0b00001100, 0b00000100, 0b00001000, 0b00000000,
-    0b00000000, 0b00000000, 0b00000000, 0b00001000, 0b00000100,
-    0b00001100, 0b00000010, 0b00000110, 0b00001110, 0b00001001,
-    0b00000101, 0b00001101, 0b00000011, 0b00001011, 0b00000111,
-    0b00000111, 0b00001111
+    0b1110, 0b0101, 0b1011, 0b0111, 0b1111, 0b0111,
+    0b1011, 0b0101, 0b0001, 0b1010, 0b0100,
+    0b1000, 0b0000, 0b1000, 0b0100, 0b1010
 };
 
 /*
@@ -41,14 +37,14 @@ CONFIG_STRUCT config;
  */
 void configDefault() {
     // Station ID, relay path, and destination call sign and SSID.
-    strcpy (config.callSign, "AD7ZJ ");
+    strcpy(config.callSign, "AD7ZJ ");
     config.callSignSSID = 11;
     config.callSignLandingZoneSSID = 0;
-    strcpy (config.destCallSign, "APRS  ");
-    strcpy (config.relayCallSign1, "GATE  ");
-    strcpy (config.relayCallSign2, "WIDE3 ");
-    config.relayCallSignSSID1 = 0;
-    config.relayCallSignSSID2 = 3;
+    strcpy(config.destCallSign, "APRS  ");
+    strcpy(config.relayCallSign1, "WIDE2 ");
+    strcpy(config.relayCallSign2, "      ");
+    config.relayCallSignSSID1 = 2;
+    config.relayCallSignSSID2 = 0;
 
     // Number of TNC flag bytes sent before data stream starts.  (350mS) 1 byte = 6.6mS
     config.txDelay = 53;
@@ -56,11 +52,10 @@ void configDefault() {
     // Flight operation time.
     config.flightTime = 0;
 
-	// Setup the GPS parsing
-	gpsMode = GPS_RECEIVING_STRING;
-	serIndex = 0;
+    // Setup the GPS parsing
+    gpsMode = GPS_RECEIVING_STRING;
+    serIndex = 0;
 }
-
 
 /**
  *    Calculate the CRC-16 CCITT of <b>buffer</b> that is <b>length</b> bytes long.
@@ -71,7 +66,7 @@ void configDefault() {
  *    @return CRC-16 of buffer[0 .. length]
  */
 
-uint16_t sysCRC16 (uint8_t *buffer, uint16_t length) {
+uint16_t sysCRC16(uint8_t *buffer, uint16_t length) {
     uint16_t i, dbit, crc, value;
 
     crc = 0xffff;
@@ -81,7 +76,7 @@ uint16_t sysCRC16 (uint8_t *buffer, uint16_t length) {
 
         for (dbit = 0; dbit < 8; ++dbit) {
             crc ^= (value & 0x01);
-            crc = ( crc & 0x01 ) ? ( crc >> 1 ) ^ 0x8408 : ( crc >> 1 );
+            crc = (crc & 0x01) ? (crc >> 1) ^ 0x8408 : (crc >> 1);
             value = value >> 1;
         }
     }
@@ -89,10 +84,9 @@ uint16_t sysCRC16 (uint8_t *buffer, uint16_t length) {
     return crc ^ 0xffff;
 }
 
-
 /**
- *   Prepare an AX.25 packet for transmission.  This function takes a char buffer as 
- *   input and operates on tncBuffer. 
+ *   Prepare an AX.25 packet for transmission.  This function takes a char buffer as
+ *   input and operates on tncBuffer.
  *
  *   @param message pointer to NULL terminate message string
  */
@@ -105,7 +99,7 @@ void tncPreparePacket(uint8_t * message) {
     if (tncMode == TNC_TX_PREPARE || tncMode == TNC_TX_SYNC || tncMode == TNC_TX_DATA || tncMode == TNC_TX_END)
         return;
 
-    tncMode= TNC_TX_PREPARE;
+    tncMode = TNC_TX_PREPARE;
 
     // Set a pointer to our output buffer.
     outBuffer = tncBuffer;
@@ -114,7 +108,7 @@ void tncPreparePacket(uint8_t * message) {
     tncLength = 17;
 
     // Set the destination address.  AX.25 requires all callsigns to be ASCI shifted one left.  This
-	// essentially just drops the parity bit
+    // essentially just drops the parity bit
     for (i = 0; i < 6; ++i)
         *outBuffer++ = config.destCallSign[i] << 1;
 
@@ -137,16 +131,16 @@ void tncPreparePacket(uint8_t * message) {
     if (*config.relayCallSign1 != 0) {
         for (i = 0; i < 6; ++i)
             *outBuffer++ = config.relayCallSign1[i] << 1;
-            *outBuffer++ = 0x60 | (config.relayCallSignSSID1 << 1);
-            tncLength += 7;
+        *outBuffer++ = 0x60 | (config.relayCallSignSSID1 << 1);
+        tncLength += 7;
     }
 
     // Add relay path 2.
     if (*config.relayCallSign2 != 0) {
         for (i = 0; i < 6; ++i)
             *outBuffer++ = config.relayCallSign2[i] << 1;
-            *outBuffer++ = 0x60 | (config.relayCallSignSSID2 << 1);
-            tncLength += 7;
+        *outBuffer++ = 0x60 | (config.relayCallSignSSID2 << 1);
+        tncLength += 7;
     }
 
     // Set bit-0 of the last SSID.
@@ -181,6 +175,27 @@ void tncPreparePacket(uint8_t * message) {
     tncMode = TNC_TX_SYNC;
 }
 
+void calTones(unsigned bitValue) {
+    while (serBuffer[0] != 'q') {
+        serIndex = 0;
+
+        // Output the next step of the sin wave.  The rest of the code in this function determines the
+        // frequency of this wave.
+        PORTC = sinDAC[index];
+        index++;
+        index &= 0x0F;
+
+        if (bitValue)
+            PR2 = MARK;
+        else
+            PR2 = SPACE;
+
+        while (!TMR2IF) {
+            // wait for the timer to overflow.  This wait time determines the frequency of the sin
+        }
+        TMR2IF = 0;
+    } // end while loop
+}
 
 /**
  * Send the prepared packet via the onboard 4-bit resistor DAC.  Depends on the following global vars
@@ -190,143 +205,133 @@ void tncPreparePacket(uint8_t * message) {
  * uint8_t tncBuffer[TNC_MAX_TX]
  */
 void tncSendPacket(void) {
-	while(tncMode != TNC_RX_FLAG) {
-		// Output the next step of the sin wave.  The rest of the code in this function determines the
-		// frequency of this wave.  
-		PORTC = sinDAC[index];
-		index++;
-		index &= 0x1F;
-		switch(tncMode) {
-			// Send the flag 0x7E to begin the packet.  No bitstuffing here.  This lets the RX end sync up, and
-			// is the only time it'll see 5 1's in a row
-			case TNC_TX_SYNC:
-				if(timeElapsed > BAUD) {
-					timeElapsed = 0;
-            		// The variable tncShift contains the lastest data byte.  Data is sent LSB first
-            		// NRZI enocde the data stream.
-            		if ((tncShift & 0x01) == 0x00) {
-            		    if (tncLastBit == 0) {
-            		        tncLastBit = 1;
-							PR2 = MARK;
-						}
-            		    else {
-            		        tncLastBit = 0;
-							PR2 = SPACE;
-						}
-					}
-            		// When the flag is done, determine if we need to send more or data.
-                	if (++tncBitCount == 8) {
-                	    tncBitCount = 0;
-                	    tncShift = 0x7e;
-	
-                    	// Once we transmit x mS of flags, send the data.
-                    	// txDelay bytes * 8 bits/byte * 833uS/bit = x mS
-                    	if (++tncIndex == config.txDelay) {
-                    	    tncIndex = 0;
-                    	    tncShift = tncBuffer[0];
-                    	    tncBitStuff = 0;
-                    	    tncMode = TNC_TX_DATA;
-                    	} // END if
-                	} else
-                	    tncShift = tncShift >> 1;	
-				}
-				break;
+    while (tncMode != TNC_RX_FLAG) {
+        // Output the next step of the sin wave.  The rest of the code in this function determines the
+        // frequency of this wave.
+        PORTC = sinDAC[index];
+        index++;
+        //index &= 0x1F;
+        index &= 0x0F;
 
-			case TNC_TX_DATA:
-				// Start sending the prepared message.  This includes src and dest callsigns	
-				if(timeElapsed > BAUD) {
-					timeElapsed = 0;
-					// Bitstuffing; If there's been 5 ones in a row, send a zero
-            		if (tncBitStuff == 0x1f) {
-                		if (tncLastBit == 0) {
-                    		tncLastBit = 1;
-							PR2 = MARK;
-						}
-                		else {
-                    		tncLastBit = 0;
-							PR2 = SPACE;
-						}
-                		tncBitStuff = 0x00;
-						//timeElapsed = 0;
-            		}
-					else {
-            			// The variable tncShift contains the lastest data byte.
-            			// NRZI enocde the data stream.
-            			if ((tncShift & 0x01) == 0x00) {
-            			    if (tncLastBit == 0) {
-            	    		    tncLastBit = 1;
-								PR2 = MARK;
-							}
-            	    		else {
-            	    		    tncLastBit = 0;
-								PR2 = SPACE;
-							}
-						}
+        if (timeElapsed >= BAUD) {
+            timeElapsed = timeElapsed - BAUD;
 
-            			// Save the data stream so we can determine if bit stuffing is
-            			// required on the next bit time.
-            			tncBitStuff = ((tncBitStuff << 1) | (tncShift & 0x01)) & 0x1f;
+            switch (tncMode) {
+                    // Send the flag 0x7E to begin the packet.  No bitstuffing here.  This lets the RX end sync up, and
+                    // is the only time it'll see 5 1's in a row
+                case TNC_TX_SYNC:
+                    // The variable tncShift contains the lastest data byte.  Data is sent LSB first
+                    // NRZI enocde the data stream.
+                    if ((tncShift & 0x01) == 0x00) {
+                        if (tncLastBit == 0) {
+                            tncLastBit = 1;
+                            PR2 = MARK;
+                        } else {
+                            tncLastBit = 0;
+                            PR2 = SPACE;
+                        }
+                    }
+                    // When the flag is done, determine if we need to send more or data.
+                    if (++tncBitCount == 8) {
+                        tncBitCount = 0;
+                        tncShift = 0x7e;
 
-            			// If all the bits were shifted, get the next byte.
-            			if (++tncBitCount == 8) {
-            			    tncBitCount = 0;
+                        // Once we transmit x mS of flags, send the data.
+                        // txDelay bytes * 8 bits/byte * 833uS/bit = x mS
+                        if (++tncIndex == config.txDelay) {
+                            tncIndex = 0;
+                            tncShift = tncBuffer[0];
+                            tncBitStuff = 0;
+                            tncMode = TNC_TX_DATA;
+                        } // END if
+                    } else
+                        tncShift = tncShift >> 1;
+                    break;
 
-	            			// If everything was sent, transmit closing flags.
-                			if (++tncIndex == tncLength) {
-                			    tncShift = 0x7e;
-								tncIndex = 0;
-                			    tncMode = TNC_TX_END;
-                			} 
-							else {
-                			    tncShift = tncBuffer[tncIndex];
-            				}
-						}
-						else {
-                			tncShift = tncShift >> 1;
-						} 		
-					}
-				}
-				break;
+                case TNC_TX_DATA:
+                    // Start sending the prepared message.  This includes src and dest callsigns
+                    // Bitstuffing; If there's been 5 ones in a row, send a zero
+                    if (tncBitStuff == 0x1f) {
+                        if (tncLastBit == 0) {
+                            tncLastBit = 1;
+                            PR2 = MARK;
+                        } else {
+                            tncLastBit = 0;
+                            PR2 = SPACE;
+                        }
+                        tncBitStuff = 0x00;
+                        //timeElapsed = 0;
+                    } else {
+                        // The variable tncShift contains the lastest data byte.
+                        // NRZI enocde the data stream.
+                        if ((tncShift & 0x01) == 0x00) {
+                            if (tncLastBit == 0) {
+                                tncLastBit = 1;
+                                PR2 = MARK;
+                            } else {
+                                tncLastBit = 0;
+                                PR2 = SPACE;
+                            }
+                        }
 
-			case TNC_TX_END:
-				if(timeElapsed > BAUD) {
-					timeElapsed = 0;
-					// Transmit the closing flags.  No bitstuffing here either
-                	// NRZI enocde the data stream.
-                	if ((tncShift & 0x01) == 0x00) {
-            	   		if (tncLastBit == 0) {
-            	   	    	tncLastBit = 1;
-							PR2 = MARK;
-						}
-            	    	else {
-            	    	    tncLastBit = 0;
-							PR2 = SPACE;
-						}
-					}
-                	// If all the bits were shifted, get the next one.
-                	if (++tncBitCount == 8) {
-                    	tncBitCount = 0;
-                    	tncShift = 0x7e;
+                        // Save the data stream so we can determine if bit stuffing is
+                        // required on the next bit time.
+                        tncBitStuff = ((tncBitStuff << 1) | (tncShift & 0x01)) & 0x1f;
 
-                    	// Transmit two closing flags.
-                    	if (++tncIndex == 2) {
-                        	// Reset to the receive mode.
-                        	tncIndex = 0;
-                       		tncShift = 0;
-                        	tncMode = TNC_RX_FLAG;
-                		}
-                	} else
-                    	tncShift = tncShift >> 1;
-				}
-                break;	
- 		} // end switch
+                        // If all the bits were shifted, get the next byte.
+                        if (++tncBitCount == 8) {
+                            tncBitCount = 0;
 
-		while(!TMR2IF) {
-			// wait for the timer to overflow.  This wait time determines the frequency of the sin
-		}
-		TMR2IF = 0; 
-		timeElapsed += PR2;
-	} // end while loop
+                            // If everything was sent, transmit closing flags.
+                            if (++tncIndex == tncLength) {
+                                tncShift = 0x7e;
+                                tncIndex = 0;
+                                tncMode = TNC_TX_END;
+                            } else {
+                                tncShift = tncBuffer[tncIndex];
+                            }
+                        } else {
+                            tncShift = tncShift >> 1;
+                        }
+                    }
+                    break;
+
+                case TNC_TX_END:
+                    // Transmit the closing flags.  No bitstuffing here either
+                    // NRZI enocde the data stream.
+                    if ((tncShift & 0x01) == 0x00) {
+                        if (tncLastBit == 0) {
+                            tncLastBit = 1;
+                            PR2 = MARK;
+                        } else {
+                            tncLastBit = 0;
+                            PR2 = SPACE;
+                        }
+                    }
+                    // If all the bits were shifted, get the next one.
+                    if (++tncBitCount == 8) {
+                        tncBitCount = 0;
+                        tncShift = 0x7e;
+
+                        // Transmit two closing flags.
+                        if (++tncIndex == 2) {
+                            // Reset to the receive mode.
+                            tncIndex = 0;
+                            tncShift = 0;
+                            tncMode = TNC_RX_FLAG;
+                        }
+                    } else
+                        tncShift = tncShift >> 1;
+                    break;
+            } // end switch
+        }
+
+        while (!TMR2IF) {
+            // wait for the timer to overflow.  This wait time determines the frequency of the sin
+        }
+        TMR2IF = 0;
+        timeElapsed += PR2;
+    } // end while loop
 }
 
 /** @} */

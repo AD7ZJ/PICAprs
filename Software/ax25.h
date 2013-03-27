@@ -34,6 +34,7 @@ void configDefault(); // Configure the TNC
 void tncPreparePacket(char * message); // Prepare a packet to send
 void tncSendPacket(void); // Send a packet via the 4 bit DAC
 void sysInit(void); // Initializes all the uC peripherals
+void calTones(unsigned bitValue); // generate a mark or space tone to allow calibration
 
 /*
  * Declare global vars and data structures
@@ -135,16 +136,16 @@ extern uint8_t serBuffer[SER_MAX_RX];
 
 
 /**
- * 1200 Hz tone for a mark.  Calculated by (Fosc/4)/(1200*32)
+ * 1200 Hz tone for a mark.  Calculated by (Fosc/4/2)/(1200*16)
  */
 #define 	MARK 	208
 /**
- * 2200 Hz tone for a space.  Calculated by (Fosc/4)/(2200*32)
+ * 2200 Hz tone for a space.  Calculated by (Fosc/4/2)/(2200*16)
  */
 #define		SPACE	113
 /**
- * 1200 Baud.  In units of timer 2 (no pre/post scalar), so calculated by (Fosc/4)/(1200)
+ * 1200 Baud.  In units of timer 2 (no pre, post scalar 1:2), so calculated by (Fosc/4/2)/(1200)
  */
-#define		BAUD	6665
+#define		BAUD	3333
 
 #endif /* AX25_H */
