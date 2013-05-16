@@ -7,34 +7,12 @@
 #ifndef AX25_H
 #define	AX25_H
 
-/// Boolean value { false, true }
-typedef unsigned char bool_t;
-
-/// Signed 8-bit number in the range -128 through 127.
-typedef char int8_t;
-
-/// Unsigned 8-bit number in the range 0 through 255.
-typedef unsigned char uint8_t;
-
-/// Signed 16-bit number in the range -32768 through 32767.
-typedef int int16_t;
-
-/// Unsigned 16-bit number in the range 0 through 65,535.
-typedef unsigned int uint16_t;
-
-/// Signed 32-bit number in the range -2147483648 through 2147483647.
-typedef long int32_t;
-
-/// Unsigned 32-bit number in the range 0 through 4294967296.
-typedef unsigned long uint32_t;
-
-
-uint16_t sysCRC16(uint8_t *buffer, uint16_t length); // Generate a 16 bit CRC
 void configDefault(); // Configure the TNC
 void tncPreparePacket(char * message); // Prepare a packet to send
 void tncSendPacket(void); // Send a packet via the 4 bit DAC
 void sysInit(void); // Initializes all the uC peripherals
 void calTones(unsigned bitValue); // generate a mark or space tone to allow calibration
+uint16_t sysCRC16(uint8_t *buffer, uint16_t length); // Generate a 16 bit CRC
 
 /*
  * Declare global vars and data structures

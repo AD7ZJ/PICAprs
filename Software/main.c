@@ -34,7 +34,7 @@
  * @section history_sec Revision History
  *
  * 		@subsection v001 V0.01
- * 		30 Mar 2011, fullofbugsandcrap release.
+ * 		30 Mar 2011, Initial release.
  *
  */
 
@@ -42,68 +42,30 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "main.h"
 #include "ax25.h"
 #include "serial.h"
 #include "flash.h"
 #include "Engineering.h"
 
 #define _XTAL_FREQ 32000000
+
+/*
+ * System setup
+ */
 __CONFIG(1, OSC_INT_RC_CLKOUT_ON_OSC2 & PLLEN_OSCILLATOR_MULTIPLIED_BY_4 & PCLKEN_PRIMARY_CLOCK_DISABLED);
 __CONFIG(2, WDTEN_DISABLED_CONTROLLED_BY_SWDTEN_BIT);
 __CONFIG(3, MCLRE_MCLR_DISABLED_RA3_ENABLED);
 //__CONFIG(4, XINST_DISABLED & BACKBUG_DISABLED);
 
-unsigned char test = 0x20;
+/*
+ * Forward definitions
+ */
+static void sysInit(void);
 
-void sysInit(void) {
-    // port directions: 1=input, 0=output
-    LATA = 0x00;
-    TRISA = 0b00000000;
-    LATB = 0x00;
-    TRISB = 0b00100000;
-    LATC = 0x00;
-    TRISC = 0b00000000;
-    OSCCON = 0b01100000;
-    PLLEN = 0x01;
-    // Enable ADC channel 8 Disable channel 2
-    ANSEL = 0b00000000;
-    ANSELH = 0b00000000;
-
-    // initialize the flash clock
-    FlashInit();
-
-    // reset the flash chip
-    ResetEn();
-    ResetFlash();
-
-    // Enable the quad I/O
-    En_QIO();
-
-    // Enable writing of flash memory
-    block_protection_6[0] = 0;
-    block_protection_6[1] = 0;
-    block_protection_6[2] = 0;
-    block_protection_6[3] = 0;
-    block_protection_6[4] = 0;
-    block_protection_6[5] = 0;
-    flashWREN();
-    WriteBlockProtection();
-    
-
-    // Clear the timers
-    TMR1H = 0x00;
-    TMR1L = 0x00;
-    // Timer 1 setup
-    T1CON = 0b00110001;
-    TMR1IE = 0x01;
-    T2CON = 0b00001100;
-
-    // GIE, PEIE Interrupts
-    INTCON = 0b11000000;
-    RCIE = 0x01;
-    secCount = 0;
-}
-
+/*
+ * Global variables
+ */
 volatile char buff = 0;
 
 void main(void) {
@@ -136,6 +98,55 @@ void main(void) {
             }
         }
     }
+}
+
+static void sysInit(void) {
+    // port directions: 1=input, 0=output
+    LATA = 0x00;
+    TRISA = 0b00000000;
+    LATB = 0x00;
+    TRISB = 0b00100000;
+    LATC = 0x00;
+    TRISC = 0b00000000;
+    OSCCON = 0b01100000;
+    PLLEN = 0x01;
+    // Enable ADC channel 8 Disable channel 2
+    ANSEL = 0b00000000;
+    ANSELH = 0b00000000;
+
+    // initialize the flash clock
+    FlashInit();
+
+    // reset the flash chip
+    ResetEn();
+    ResetFlash();
+
+    // Enable the quad I/O
+    En_QIO();
+
+    // Enable writing of flash memory
+    block_protection_6[0] = 0;
+    block_protection_6[1] = 0;
+    block_protection_6[2] = 0;
+    block_protection_6[3] = 0;
+    block_protection_6[4] = 0;
+    block_protection_6[5] = 0;
+    flashWREN();
+    WriteBlockProtection();
+
+
+    // Clear the timers
+    TMR1H = 0x00;
+    TMR1L = 0x00;
+    // Timer 1 setup
+    T1CON = 0b00110001;
+    TMR1IE = 0x01;
+    T2CON = 0b00001100;
+
+    // GIE, PEIE Interrupts
+    INTCON = 0b11000000;
+    RCIE = 0x01;
+    secCount = 0;
 }
 
 interrupt isr(void) {

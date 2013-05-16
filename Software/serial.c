@@ -121,10 +121,10 @@ void putchhex(unsigned char c) {
 }
 
 void putinthex(unsigned int c) {
-#define ramuint(x)						(*((unsigned int *) (x)))
-#define ramuint_hibyte(x)			(*(((unsigned char *)&x)+1))
-#define ramuint_lobyte(x)			(*(((unsigned char *)&x)+0))
-#define ramuchar(x)						(*((unsigned char *) (x)))
+#define ramuint(x)              (*((unsigned int *) (x)))
+#define ramuint_hibyte(x)       (*(((unsigned char *)&x)+1))
+#define ramuint_lobyte(x)       (*(((unsigned char *)&x)+0))
+#define ramuchar(x)             (*((unsigned char *) (x)))
 
     putchhex(ramuint_hibyte(c));
     putchhex(ramuint_lobyte(c));

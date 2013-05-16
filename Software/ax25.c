@@ -1,5 +1,6 @@
 #include <htc.h>
 #include <string.h>
+#include "main.h"
 #include "ax25.h"
 
 /**

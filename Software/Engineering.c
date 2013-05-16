@@ -1,3 +1,4 @@
+#include "main.h"
 #include "serial.h"
 #include "ax25.h"
 #include "flash.h"
