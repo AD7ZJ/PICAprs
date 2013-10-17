@@ -26,7 +26,6 @@ unsigned char sinDAC[] = {
  */
 uint16_t tncTimerCompare, tncIndex, tncLength, secCount;
 uint8_t tncBitCount, tncBitTime, tncShift, tncRx, tncLastBit, tncMode, tncTransmit;
-uint8_t gpsMode;
 uint8_t tncBitStuff, tncBuffer[TNC_MAX_TX], serBuffer[SER_MAX_RX], serIndex, tncSSIDOverrideFlag, tncRemoteTick, index;
 
 volatile static unsigned int timeElapsed = 0;
@@ -34,7 +33,7 @@ volatile static unsigned int timeElapsed = 0;
 CONFIG_STRUCT config;
 
 /**
- *	Configure the TNC's callsign, SSID, and digipeat path.
+ *    Configure the TNC's callsign, SSID, and digipeat path.
  */
 void configDefault() {
     // Station ID, relay path, and destination call sign and SSID.
@@ -54,7 +53,6 @@ void configDefault() {
     config.flightTime = 0;
 
     // Setup the GPS parsing
-    gpsMode = GPS_RECEIVING_STRING;
     serIndex = 0;
 }
 

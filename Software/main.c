@@ -33,8 +33,8 @@
  *
  * @section history_sec Revision History
  *
- * 		@subsection v001 V0.01
- * 		30 Mar 2011, Initial release.
+ *         @subsection v001 V0.01
+ *         30 Mar 2011, Initial release.
  *
  */
 
@@ -45,120 +45,174 @@
 #include "main.h"
 #include "ax25.h"
 #include "serial.h"
-#include "flash.h"
 #include "Engineering.h"
+#include "led.h"
+#include "fifo.h"
+#include "gps.h"
 
 #define _XTAL_FREQ 32000000
 
 /*
- * System setup
+ * Fuse settings
  */
-__CONFIG(1, OSC_INT_RC_CLKOUT_ON_OSC2 & PLLEN_OSCILLATOR_MULTIPLIED_BY_4 & PCLKEN_PRIMARY_CLOCK_DISABLED);
-__CONFIG(2, WDTEN_DISABLED_CONTROLLED_BY_SWDTEN_BIT);
-__CONFIG(3, MCLRE_MCLR_DISABLED_RA3_ENABLED);
-//__CONFIG(4, XINST_DISABLED & BACKBUG_DISABLED);
+#pragma config OSC      = INTIO67
+#pragma config WDT      = OFF
+#pragma config BOREN    = OFF
+#pragma config DEBUG    = ON
+#pragma config MCLRE    = OFF
+#pragma config LVP      = OFF
 
 /*
  * Forward definitions
  */
-static void sysInit(void);
+void sysInit(void);
+void LedBootBlink(void);
 
 /*
+ * Definitions
+ *
+ */
+typedef enum {
+    STARTUP,
+    GPS_MODE,
+    CONSOLE_MODE
+} SER_PORT_MODE;
+
+/**
  * Global variables
  */
-volatile char buff = 0;
+
+/// Holds the last received byte from the serial port
+volatile char serbuff = 0;
+static uint32_t uptime;
+SER_PORT_MODE serMode;
 
 void main(void) {
     sysInit();
-    serial_setup();
+    SerialInit();
+    
 
     // configure the TNC
     configDefault();
 
+    // indicate the system is up and running
+    LedBootBlink();
+
+    SetLED(3, 1);
+    // wait for someone to press '1' a few times to enter console mode
+    putst("Press '1' to enter console mode\r\n");
+    while (uptime < 300) {
+        if (serbuff == '1') {
+            serMode = CONSOLE_MODE;
+            break;
+        }
+    }
+    SetLED(3, 0);
+
+    // if console mode was not selected, default to using the GPS
+    if (serMode != CONSOLE_MODE)
+        serMode = GPS_MODE;
+
     while (1) {
-        if(gpsMode == GPS_CONSOLE_MODE)
+        if (serMode == CONSOLE_MODE)
             EngineeringConsole();
         else {
+            // Read data from the GPS
+            GpsUpdate();
+
             /** 1s tasks **/
             if (secCount > 100) {
-
+                printf("Uptime: %ul\r\n", uptime);
                 secCount = 0;
             }
+            
+            if (secCount <= 50)
+                SetLED(1, 1);
+            else
+                SetLED(1, 0);
 
-            if (gpsMode == GPS_COMPLETE_STRING) {
-                if(!strcmp(serBuffer, "7777\r")) {
-                    gpsMode = GPS_CONSOLE_MODE;
-                    putst("Entering console mode...");
-                }
-                else {
-                    putst(serBuffer);
-                    gpsMode = GPS_RECEIVING_STRING;
-                    serIndex = 0;
-                }
-            }
         }
     }
 }
 
-static void sysInit(void) {
+/**
+ * Blink the LEDs in a pattern to signal a successful boot
+ */
+void LedBootBlink(void) {
+    uint8_t i;
+    for (i = 0; i < 3; i++) {
+        SetLED(1, 1);
+        __delay_ms(10);
+        SetLED(1, 0);
+        SetLED(2, 1);
+        __delay_ms(10);
+        SetLED(2, 0);
+        SetLED(3, 1);
+        __delay_ms(10);
+        SetLED(3, 0);
+        __delay_ms(10);
+        __delay_ms(10);
+        __delay_ms(10);
+    }
+}
+
+void sysInit(void) {
     // port directions: 1=input, 0=output
     LATA = 0x00;
     TRISA = 0b00000000;
     LATB = 0x00;
-    TRISB = 0b00100000;
+    TRISB = 0b00000000;
     LATC = 0x00;
-    TRISC = 0b00000000;
-    OSCCON = 0b01100000;
+    TRISC = 0b11000000;
+
+    // multiply internal 8 MHz clock x4
+    OSCCON = 0b01110000;
     PLLEN = 0x01;
-    // Enable ADC channel 8 Disable channel 2
-    ANSEL = 0b00000000;
-    ANSELH = 0b00000000;
-
-    // initialize the flash clock
-    FlashInit();
-
-    // reset the flash chip
-    ResetEn();
-    ResetFlash();
-
-    // Enable the quad I/O
-    En_QIO();
-
-    // Enable writing of flash memory
-    block_protection_6[0] = 0;
-    block_protection_6[1] = 0;
-    block_protection_6[2] = 0;
-    block_protection_6[3] = 0;
-    block_protection_6[4] = 0;
-    block_protection_6[5] = 0;
-    flashWREN();
-    WriteBlockProtection();
-
+    // All digital inputs
+    ADCON1 = 0x0F;
 
     // Clear the timers
     TMR1H = 0x00;
     TMR1L = 0x00;
-    // Timer 1 setup
-    T1CON = 0b00110001;
+
+    // Enable timer 1
+    T1CONbits.TMR1ON = 0x1;
+    // System clock is not derived from Timer1 Osc
+    T1CONbits.T1RUN = 0x0;
+    // Timer1 Osc is disabled
+    T1CONbits.T1OSCEN = 0x0;
+    // Use Fosc/4 for the clock source
+    T1CONbits.TMR1CS = 0x0;
+    // prescaler of 1:8
+    T1CONbits.T1CKPS = 0x3;
+    // enable its interrupt
     TMR1IE = 0x01;
-    T2CON = 0b00001100;
+
+    // enable Timer2
+    T2CONbits.TMR2ON = 0x1;
+    // Prescale of 1:2
+    T2CONbits.T2OUTPS0 = 0x1;
 
     // GIE, PEIE Interrupts
+    GIE = 0x1;
+    PEIE = 0x1;
     INTCON = 0b11000000;
     RCIE = 0x01;
     secCount = 0;
+
+    // Put the serial port in startup mode
+    serMode = STARTUP;
+
+    // zero the uptime
+    uptime = 0;
 }
 
 interrupt isr(void) {
     // Serial receive interrupt
     if (RCIF) {
-        buff = RCREG;
-        serBuffer[serIndex] = buff;
-        serIndex++;
-        if (buff == '\r') {
-            // Assume a complete packet
-            serBuffer[serIndex] = '\0';
-            gpsMode = GPS_COMPLETE_STRING;
+        serbuff = RCREG;
+        if (serMode != STARTUP) {
+            FifoWrite(serbuff);
         }
     }
 
@@ -169,5 +223,6 @@ interrupt isr(void) {
         TMR1IF = 0x00;
         TMR1H = 0xC3;
         TMR1L = 0x50;
+        uptime++;
     }
 }

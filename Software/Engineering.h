@@ -6,9 +6,9 @@
  */
 
 #ifndef ENGINEERING_H
-#define	ENGINEERING_H
+#define    ENGINEERING_H
 
 void EngineeringConsole();
 
-#endif	/* ENGINEERING_H */
+#endif    /* ENGINEERING_H */
 

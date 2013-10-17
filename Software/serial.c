@@ -1,28 +1,28 @@
 #include <htc.h>
 #include "serial.h"
 
-#define	PIC_CLK 32000000
+#define    PIC_CLK 32000000
 
-void serial_setup(void) {
+void SerialInit(void) {
     /* relates crystal freq to baud rate - see above and PIC16F87x data sheet under 'USART async. modes'
 
-    BRGH=1, Fosc=3.6864MHz		BRGH=1, Fosc=4MHz      BRGH=1, Fosc=8MHz    BRGH=1, Fosc=16MHz
-    ----------------------	  -----------------      -----------------    ------------------
-    Baud		SPBRG             Baud		SPBRG          Baud		SPBRG         Baud		SPBRG
-    1200		191               1200		207.3          1200		415.7         9600    103
-    2400		95                2400		103.2          2400		207.3         19200		51
-    4800		47                4800		51.1           4800		103.2         38400   25
-    9600		23                9600		25.0           9600		51.1          57600   16
-    19200		11                19200		12.0           19200	25.0          115200  8
-    38400		5                 38400		5.5            38400	12.0
-    57600		3                 57600		3.3            57600	7.7
-    115200	1                 115200	1.2            115200	3.3
+    BRGH=1, Fosc=3.6864MHz        BRGH=1, Fosc=4MHz      BRGH=1, Fosc=8MHz    BRGH=1, Fosc=16MHz
+    ----------------------      -----------------      -----------------    ------------------
+    Baud        SPBRG             Baud        SPBRG          Baud        SPBRG         Baud        SPBRG
+    1200        191               1200        207.3          1200        415.7         9600    103
+    2400        95                2400        103.2          2400        207.3         19200        51
+    4800        47                4800        51.1           4800        103.2         38400   25
+    9600        23                9600        25.0           9600        51.1          57600   16
+    19200        11                19200        12.0           19200    25.0          115200  8
+    38400        5                 38400        5.5            38400    12.0
+    57600        3                 57600        3.3            57600    7.7
+    115200    1                 115200    1.2            115200    3.3
 
      */
 
-/*
- * Comms setup:
- */
+    /*
+     * Comms setup:
+     */
 
 #define BAUD 9600
 #define DIVIDER ((PIC_CLK/(16UL * BAUD) -1))
@@ -54,23 +54,22 @@ void serial_setup(void) {
 
 unsigned char dummy;
 
-#define clear_usart_errors_inline	\
-if (OERR)													\
-{																	\
-	TXEN=0;													\
-	TXEN=1;													\
-	CREN=0;													\
-	CREN=1;													\
-}																	\
-if (FERR)													\
-{																	\
-	dummy=RCREG;										\
-	TXEN=0;													\
-	TXEN=1;													\
+#define clear_usart_errors_inline    \
+if (OERR)                \
+{                    \
+    TXEN=0;                \
+    TXEN=1;                \
+    CREN=0;                \
+    CREN=1;                \
+}                    \
+if (FERR)                \
+{                    \
+    dummy=RCREG;            \
+    TXEN=0;                \
+    TXEN=1;                \
 }
 
 //writes a character to the serial port
-
 void putch(unsigned char c) {
     while (!TXIF); //set when register is empty
     {
@@ -82,7 +81,6 @@ void putch(unsigned char c) {
 }
 
 //gets a character from the serial port without timeout
-
 unsigned char getch(void) {
     while (!RCIF) {
         CLRWDT();
@@ -96,15 +94,13 @@ void clear_usart_errors(void) {
 }
 
 /*
-writes a character to the serial port in hex
-if serial lines are disconnected, there are no errors
+ * writes a character to the serial port in hex
+ * if serial lines are disconnected, there are no errors
  */
-
 void putchhex(unsigned char c) {
     unsigned char temp;
 
     // transmits in hex
-
     temp = c;
 
     c = (c >> 4);
@@ -138,7 +134,7 @@ void putinthex(unsigned int c) {
 //if there has been a previous timeout error from getch_timeout, this returns TRUE
 
 unsigned char usart_timeout(void) {
-    //	return usart_timeout_error;
+    //    return usart_timeout_error;
     return 0;
 }
 

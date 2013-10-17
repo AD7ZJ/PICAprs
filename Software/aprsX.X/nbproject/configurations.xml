@@ -7,9 +7,11 @@
       <itemPath>../adc.h</itemPath>
       <itemPath>../ax25.h</itemPath>
       <itemPath>../serial.h</itemPath>
-      <itemPath>../flash.h</itemPath>
       <itemPath>../Engineering.h</itemPath>
       <itemPath>../main.h</itemPath>
+      <itemPath>../led.h</itemPath>
+      <itemPath>../gps.h</itemPath>
+      <itemPath>../fifo.h</itemPath>
     </logicalFolder>
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
@@ -18,8 +20,10 @@
       <itemPath>../ax25.c</itemPath>
       <itemPath>../main.c</itemPath>
       <itemPath>../serial.c</itemPath>
-      <itemPath>../flash.c</itemPath>
       <itemPath>../Engineering.c</itemPath>
+      <itemPath>../led.c</itemPath>
+      <itemPath>../gps.c</itemPath>
+      <itemPath>../fifo.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -35,7 +39,7 @@
     <conf name="default" type="2">
       <toolsSet>
         <developmentServer>localhost</developmentServer>
-        <targetDevice>PIC18F14K22</targetDevice>
+        <targetDevice>PIC18F2525</targetDevice>
         <targetHeader></targetHeader>
         <targetPluginBoard></targetPluginBoard>
         <platformTool>PICkit2PlatformTool</platformTool>
@@ -64,7 +68,8 @@
       </makeCustomizationType>
       <HI-TECH-COMP>
         <property key="define-macros" value=""/>
-        <property key="extra-include-directories" value=".."/>
+        <property key="extra-include-directories"
+                  value="..;C:\Program Files\HI-TECH Software\PICC-18\9.80\include"/>
         <property key="identifier-length" value="31"/>
         <property key="operation-mode" value="pro"/>
         <property key="optimization-assembler" value="true"/>
@@ -77,9 +82,10 @@
         <property key="preprocess-assembler" value="false"/>
         <property key="undefine-macros" value=""/>
         <property key="verbose" value="false"/>
-        <property key="warning-level" value="0"/>
+        <property key="warning-level" value="1"/>
         <property key="what-to-do" value="ignore"/>
         <property key="what-to-do-ex" value="ignore"/>
+        <appendMe value="-lm"/>
       </HI-TECH-COMP>
       <HI-TECH-LINK>
         <property key="additional-options-callgraph" value="std"/>
