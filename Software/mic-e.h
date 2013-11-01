@@ -16,18 +16,21 @@
  *                                                                         *
  ***************************************************************************
  *                                                                         *
- *               (c) Copyright, 1997-2013, ANSR                            *
+ *               (c) Copyright, 1997-2012, ANSR                            *
  *                                                                         *
  ***************************************************************************
  *                                                                         *
- * Filename:     FIFO.h                                                    *
+ * Filename:     MIC-E.h                                                   *
  *                                                                         *
  ***************************************************************************/
 
-#ifndef FIFO_H
-#define FIFO_H
+#ifndef MIC_ENCODER_H
+#define MIC_ENCODER_H
 
 #include "main.h"
+
+
+
 
 /**
  *  @defgroup library Generic Library Functions
@@ -36,15 +39,23 @@
  */
 
 /**
- * Generic FIFO suitable for UART ports and other 8-bit based devices
- * that require a data FIFO.
+ *  Generate a MIC-E type message
  */
+void MicEEncode (GPSData *gps);
 
-void FifoClear();
-bool_t FifoHasData();
-uint8_t FifoRead();
-void FifoWrite(uint8_t value);
+/**
+ * Get the AX.25 info field from the MIC-E encoded data
+ * @return pointer to the array
+ */
+char * MicEGetInfoField();
+
+/**
+ * Get the AX.25 dest address from the MIC-E encoded data
+ * @return
+ */
+char * MicEGetDestAddress();
+
 
 /** @} */
 
-#endif  // #ifndef FIFO_H
+#endif  // #ifndef MIC-MIC_ENCODER_H

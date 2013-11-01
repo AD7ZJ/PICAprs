@@ -1,7 +1,8 @@
 #include <htc.h>
 #include <string.h>
 #include "main.h"
-#include "ax25.h"
+#include "tnc.h"
+#include "fifo.h"
 
 /**
  * @defgroup AX25 Packet Creation
@@ -15,7 +16,7 @@
  * to jump to after an equal increment in time.  Note this is highly dependant
  * on the particular HW configuration :-)
  */
-unsigned char sinDAC[] = {
+static unsigned char sinDAC[] = {
     0b1110, 0b0101, 0b1011, 0b0111, 0b1111, 0b0111,
     0b1011, 0b0101, 0b0001, 0b1010, 0b0100,
     0b1000, 0b0000, 0b1000, 0b0100, 0b1010
@@ -24,22 +25,19 @@ unsigned char sinDAC[] = {
 /*
  * Define global variables
  */
-uint16_t tncTimerCompare, tncIndex, tncLength, secCount;
+uint16_t tncTimerCompare, tncIndex, tncLength;
 uint8_t tncBitCount, tncBitTime, tncShift, tncRx, tncLastBit, tncMode, tncTransmit;
-uint8_t tncBitStuff, tncBuffer[TNC_MAX_TX], serBuffer[SER_MAX_RX], serIndex, tncSSIDOverrideFlag, tncRemoteTick, index;
-
+uint8_t tncBitStuff, tncBuffer[TNC_MAX_TX], tncRemoteTick, index;
 volatile static unsigned int timeElapsed = 0;
-
 CONFIG_STRUCT config;
 
 /**
  *    Configure the TNC's callsign, SSID, and digipeat path.
  */
-void configDefault() {
+void TncConfigDefault() {
     // Station ID, relay path, and destination call sign and SSID.
     strcpy(config.callSign, "AD7ZJ ");
     config.callSignSSID = 11;
-    config.callSignLandingZoneSSID = 0;
     strcpy(config.destCallSign, "APRS  ");
     strcpy(config.relayCallSign1, "WIDE2 ");
     strcpy(config.relayCallSign2, "      ");
@@ -51,9 +49,6 @@ void configDefault() {
 
     // Flight operation time.
     config.flightTime = 0;
-
-    // Setup the GPS parsing
-    serIndex = 0;
 }
 
 /**
@@ -64,8 +59,7 @@ void configDefault() {
  *
  *    @return CRC-16 of buffer[0 .. length]
  */
-
-uint16_t sysCRC16(uint8_t *buffer, uint16_t length) {
+uint16_t CRC16(uint8_t *buffer, uint16_t length) {
     uint16_t i, dbit, crc, value;
 
     crc = 0xffff;
@@ -88,9 +82,10 @@ uint16_t sysCRC16(uint8_t *buffer, uint16_t length) {
  *   input and operates on tncBuffer.
  *
  *   @param message pointer to NULL terminate message string
+ *   @param destaddr pointer to the destination address
  */
 
-void tncPreparePacket(uint8_t * message) {
+void TncPreparePacket(uint8_t * message, uint8_t * destaddr) {
     uint16_t i, crc;
     uint8_t *outBuffer;
 
@@ -109,7 +104,7 @@ void tncPreparePacket(uint8_t * message) {
     // Set the destination address.  AX.25 requires all callsigns to be ASCI shifted one left.  This
     // essentially just drops the parity bit
     for (i = 0; i < 6; ++i)
-        *outBuffer++ = config.destCallSign[i] << 1;
+        *outBuffer++ = destaddr[i] << 1;
 
     // Set destination to SSID-0
     *outBuffer++ = 0x60;
@@ -119,12 +114,7 @@ void tncPreparePacket(uint8_t * message) {
         *outBuffer++ = config.callSign[i] << 1;
 
     // Set the SSID.
-    if (tncSSIDOverrideFlag)
-        *outBuffer++ = 0x60 | (config.callSignLandingZoneSSID << 1);
-    else
-        *outBuffer++ = 0x60 | (config.callSignSSID << 1);
-
-    tncSSIDOverrideFlag = FALSE;
+    *outBuffer++ = 0x60 | (config.callSignSSID << 1);
 
     // Add relay path 1.
     if (*config.relayCallSign1 != 0) {
@@ -159,7 +149,7 @@ void tncPreparePacket(uint8_t * message) {
     *outBuffer++ = 0x0d;
 
     // Calculate and append the CRC.
-    crc = sysCRC16(tncBuffer, tncLength);
+    crc = CRC16(tncBuffer, tncLength);
     *outBuffer++ = crc & 0xff;
     *outBuffer = (crc >> 8) & 0xff;
 
@@ -174,10 +164,8 @@ void tncPreparePacket(uint8_t * message) {
     tncMode = TNC_TX_SYNC;
 }
 
-void calTones(unsigned bitValue) {
-    while (serBuffer[0] != 'q') {
-        serIndex = 0;
-
+void TncCalTones(unsigned bitValue) {
+    while (FifoRead() != 'q') {
         // Output the next step of the sin wave.  The rest of the code in this function determines the
         // frequency of this wave.
         PORTC = sinDAC[index];
@@ -203,11 +191,11 @@ void calTones(unsigned bitValue) {
  * uint8_t tncBitCount, tncShift, tncLastBit, tncMode, tncBitStuff, index
  * uint8_t tncBuffer[TNC_MAX_TX]
  */
-void tncSendPacket(void) {
+void TncSendPacket(void) {
     while (tncMode != TNC_RX_FLAG) {
         // Output the next step of the sin wave.  The rest of the code in this function determines the
         // frequency of this wave.
-        PORTC = sinDAC[index];
+        PORTA = sinDAC[index];
         index++;
         //index &= 0x1F;
         index &= 0x0F;
@@ -331,6 +319,14 @@ void tncSendPacket(void) {
         TMR2IF = 0;
         timeElapsed += PR2;
     } // end while loop
+}
+
+void RadioRX(void) {
+    PORTC &= ~(1u << 1);
+}
+
+void RadioTX(void) {
+    PORTC |= (1u << 1);
 }
 
 /** @} */

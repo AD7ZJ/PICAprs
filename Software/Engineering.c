@@ -1,6 +1,6 @@
 #include "main.h"
 #include "serial.h"
-#include "ax25.h"
+#include "tnc.h"
 #include "fifo.h"
 #include <stdio.h>
 #include <htc.h>
@@ -16,33 +16,26 @@ void EngineeringConsole() {
             case 'h':
                 putst("PICTrack Engineering Console\n");
                 putst("1: Send APRS packet\n");
-                putst("2: Read flash status reg\n");
-                putst("3: Read flash JEDEC-ID\n");
-                putst("4: Erase flash sector 0\n");
-                putst("5: Program predtermined pattern to flash sector 0\n");
-                putst("6: Read flash sector 0\n");
-                putst("7: Read block protection register\n");
-                putst("8: Write block protection register to all writeable\n");
-                putst("9: Calibrate the mark tone\n");
-                putst("a: Calibrate the space tone\n");
+                putst("2: Calibrate the mark tone\n");
+                putst("3: Calibrate the space tone\n");
                 break;
 
             case '1':
-                RA2 = 1;
-                tncPreparePacket("$GPGGA,,3436.89881,N,11227.02683,W,7,00,,,,,,,*42");
+                RadioTX();
+                TncPreparePacket("$GPGGA,155146,3515.5466,N,11211.0917,W,1,10,0.9,2059.0,M,,M,,*74", "APRS  ");
                 // Send it
-                tncSendPacket();
+                TncSendPacket();
 
                 __delay_ms(10);
-                RA2 = 0;
+                RadioRX();
                 break;
 
-            case '9':
-                calTones(1);
+            case '2':
+                TncCalTones(1);
                 break;
 
-            case 'a':
-                calTones(0);
+            case '3':
+                TncCalTones(0);
                 break;
 
             default:

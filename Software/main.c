@@ -43,12 +43,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include "main.h"
-#include "ax25.h"
+#include "tnc.h"
 #include "serial.h"
 #include "Engineering.h"
 #include "led.h"
 #include "fifo.h"
 #include "gps.h"
+#include "mic-e.h"
 
 #define _XTAL_FREQ 32000000
 
@@ -81,19 +82,33 @@ typedef enum {
 /**
  * Global variables
  */
+static uint16_t secCount;
 
 /// Holds the last received byte from the serial port
 volatile char serbuff = 0;
 static uint32_t uptime;
 SER_PORT_MODE serMode;
 
+void SendPosition(GPSData * gps) {
+    MicEEncode(gps);
+    TncPreparePacket(MicEGetInfoField(), MicEGetDestAddress());
+
+    printf("Lat: %ld Long: %ld\r\n", gps->latitude, gps->longitude);
+    RadioTX();
+    TncSendPacket();
+    RadioRX();
+}
+
 void main(void) {
     sysInit();
     SerialInit();
-    
+    GPSData * gps;
+
+    // get the pointer to the GPS data structure
+    gps = GpsGetData();
 
     // configure the TNC
-    configDefault();
+    TncConfigDefault();
 
     // indicate the system is up and running
     LedBootBlink();
@@ -120,9 +135,23 @@ void main(void) {
             // Read data from the GPS
             GpsUpdate();
 
+            if (GpsIsDataReady()) {
+                switch (gps->seconds) {
+                    case 6:
+                    case 36:
+                        SendPosition(gps);
+                        break;
+
+                    case 15:
+                        // send a status packet
+                        break;
+                }
+
+
+            }
             /** 1s tasks **/
             if (secCount > 100) {
-                printf("Uptime: %ul\r\n", uptime);
+                //printf("Uptime: %ul\r\n", uptime);
                 secCount = 0;
             }
             

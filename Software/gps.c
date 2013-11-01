@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 #include "gps.h"
 #include "fifo.h"
@@ -28,6 +29,10 @@ void ProcessCommand(uint8_t *pCommand, uint8_t *pData);
 bool_t GetField(uint8_t *pData, uint8_t *pField, int8_t nFieldNum, int8_t nMaxFieldLen);
 void ProcessGPGGA(uint8_t *pData);
 void ProcessGPRMC(uint8_t *pData);
+
+GPSData * GpsGetData() {
+    return &data;
+}
 
 /**
  *   Determine if new GPS message is ready to process.  This function is a one shot and
@@ -129,6 +134,7 @@ void GpsUpdate() {
                     ProcessCommand(commandBuffer, dataBuffer);
 
                 gpsParseState = STARTOFMESSAGE;
+                printf("OK\r\n");
                 break;
 
                 ///////////////////////////////////////////////////////////////////////

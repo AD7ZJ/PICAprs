@@ -82,7 +82,7 @@ typedef struct GPSData {
     /// Altitude from MSL in cm.
     int32_t altitude;
 
-    /// Speed over the ground in cm/second.
+    /// Speed over the ground in knots * 10.
     uint16_t speed;
 
     /// Heading clockwise from north in units of 0.01 degrees.
@@ -117,6 +117,7 @@ typedef enum {
     RMC
 } NMEA_PACKET_TYPE;
 
+GPSData * GpsGetData();
 bool_t GpsIsDataReady();
 void GpsUpdate();
 

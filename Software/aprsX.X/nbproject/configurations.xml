@@ -5,25 +5,27 @@
                    displayName="Header Files"
                    projectFiles="true">
       <itemPath>../adc.h</itemPath>
-      <itemPath>../ax25.h</itemPath>
       <itemPath>../serial.h</itemPath>
       <itemPath>../Engineering.h</itemPath>
       <itemPath>../main.h</itemPath>
       <itemPath>../led.h</itemPath>
       <itemPath>../gps.h</itemPath>
       <itemPath>../fifo.h</itemPath>
+      <itemPath>../mic-e.h</itemPath>
+      <itemPath>../tnc.h</itemPath>
     </logicalFolder>
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
                    projectFiles="true">
       <itemPath>../adc.c</itemPath>
-      <itemPath>../ax25.c</itemPath>
       <itemPath>../main.c</itemPath>
       <itemPath>../serial.c</itemPath>
       <itemPath>../Engineering.c</itemPath>
       <itemPath>../led.c</itemPath>
       <itemPath>../gps.c</itemPath>
       <itemPath>../fifo.c</itemPath>
+      <itemPath>../mic-e.c</itemPath>
+      <itemPath>../tnc.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
