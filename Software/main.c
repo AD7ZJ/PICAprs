@@ -6,12 +6,12 @@
  * The PICTrak aims to be a self-contained APRS based tracking system that generates modulated audio (AFSK) to interface
  * with an FM transmitter.  It uses an on-board 4 bit resistor DAC followed by an RC LPF to generate the audio.  It expect
  * NMEA (GGA and RMC strings) in from a GPS on the hardware UART ports.  Currently it's designed to run on a Microchip
- * PIC18F14K22 clocked at 32 Mhz although porting to another architecture shouldn't be too difficult (tm) :-)
+ * PIC18F2525 clocked at 32 Mhz although porting to another architecture shouldn't be too difficult (tm) :-)
  *
  *
  * @section copyright_sec Copyright
  *
- * Copyright (c) 2011 Elijah Brown, AD7ZJ
+ * Copyright (c) 2013 Elijah Brown, AD7ZJ
  *
  *
  * @section gpl_sec GNU General Public License
@@ -34,7 +34,7 @@
  * @section history_sec Revision History
  *
  *         @subsection v001 V0.01
- *         30 Mar 2011, Initial release.
+ *         03 Nov 2013, Initial release.
  *
  */
 
@@ -51,7 +51,8 @@
 #include "gps.h"
 #include "mic-e.h"
 
-#define _XTAL_FREQ 32000000
+#define _XTAL_FREQ  32000000
+#define ONE_SEC     20
 
 /*
  * Fuse settings
@@ -86,14 +87,36 @@ static uint16_t secCount;
 
 /// Holds the last received byte from the serial port
 volatile char serbuff = 0;
-static uint32_t uptime;
+
+/// system 50ms time tick
+static uint32_t sysTick;
+
+/// keeps track of the one second tick
+static uint32_t oneSecTick;
+
+/// keeps track of the GPS status LED's tick
+static uint32_t statusLedOffTick;
+
+/// Keeps track of whether the serial port is in console mode or GPS mode
 SER_PORT_MODE serMode;
 
 void SendPosition(GPSData * gps) {
     MicEEncode(gps);
     TncPreparePacket(MicEGetInfoField(), MicEGetDestAddress());
-
     printf("Lat: %ld Long: %ld\r\n", gps->latitude, gps->longitude);
+
+    // transmit the Mic-E compressed packet
+    RadioTX();
+    TncSendPacket();
+    RadioRX();
+}
+
+void SendStatus() {
+    char buffer[50];
+    strcpy(buffer, ">Balloon www.ansr.org\015");
+    TncPreparePacket(buffer, "APRS  ");
+
+    // transmit the packet
     RadioTX();
     TncSendPacket();
     RadioRX();
@@ -116,7 +139,7 @@ void main(void) {
     SetLED(3, 1);
     // wait for someone to press '1' a few times to enter console mode
     putst("Press '1' to enter console mode\r\n");
-    while (uptime < 300) {
+    while (sysTick < 300) {
         if (serbuff == '1') {
             serMode = CONSOLE_MODE;
             break;
@@ -144,22 +167,26 @@ void main(void) {
 
                     case 15:
                         // send a status packet
+                        SendStatus();
                         break;
                 }
 
-
-            }
-            /** 1s tasks **/
-            if (secCount > 100) {
-                //printf("Uptime: %ul\r\n", uptime);
-                secCount = 0;
-            }
-            
-            if (secCount <= 50)
                 SetLED(1, 1);
-            else
-                SetLED(1, 0);
+                if (gps->fixType == NoFix)
+                    statusLedOffTick = sysTick + 10;
+                else
+                    statusLedOffTick = sysTick + 2;
+            }
 
+            /** 1s tasks **/
+            if (sysTick > oneSecTick) {
+                //printf("Uptime: %ul\r\n", uptime);
+                oneSecTick = sysTick + ONE_SEC;
+            }
+
+            // update the GPS status LED
+            if (sysTick > statusLedOffTick)
+                SetLED(1, 0);
         }
     }
 }
@@ -233,7 +260,11 @@ void sysInit(void) {
     serMode = STARTUP;
 
     // zero the uptime
-    uptime = 0;
+    sysTick = 0;
+
+    sysTick = 0;
+    oneSecTick = 0;
+    statusLedOffTick = 0;
 }
 
 interrupt isr(void) {
@@ -252,6 +283,6 @@ interrupt isr(void) {
         TMR1IF = 0x00;
         TMR1H = 0xC3;
         TMR1L = 0x50;
-        uptime++;
+        sysTick++;
     }
 }
