@@ -192,6 +192,8 @@ void TncCalTones(unsigned bitValue) {
  * uint8_t tncBuffer[TNC_MAX_TX]
  */
 void TncSendPacket(void) {
+    // disable interrupts so as not to mess up packet timing
+    //GIE = 0x00;
     while (tncMode != TNC_RX_FLAG) {
         // Output the next step of the sin wave.  The rest of the code in this function determines the
         // frequency of this wave.
@@ -319,6 +321,9 @@ void TncSendPacket(void) {
         TMR2IF = 0;
         timeElapsed += PR2;
     } // end while loop
+
+    // turn interrupts back on
+    //GIE = 0x01;
 }
 
 void RadioRX(void) {

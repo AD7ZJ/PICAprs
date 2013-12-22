@@ -134,7 +134,7 @@ void GpsUpdate() {
                     ProcessCommand(commandBuffer, dataBuffer);
 
                 gpsParseState = STARTOFMESSAGE;
-                printf("OK\r\n");
+                printf("OK secs: %d\r\n", data.seconds);
                 break;
 
                 ///////////////////////////////////////////////////////////////////////
