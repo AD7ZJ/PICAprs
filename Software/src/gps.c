@@ -362,9 +362,9 @@ void ProcessGPRMC(uint8_t *pData)
     //
     if(GetField(pData, pField, 4, MAXFIELD))
     {
-        data.longitude = round(10000000 * atof((char *)pField+3) / 60.0);
+        data.longitude = (int32_t)round(10000000 * atof((char *)pField+3) / 60.0);
         pField[3] = '\0';
-        data.longitude += round(10000000 * atof((char *)pField));
+        data.longitude += (int32_t)round(10000000 * atof((char *)pField));
     }
     if(GetField(pData, pField, 5, MAXFIELD))
     {
@@ -379,7 +379,7 @@ void ProcessGPRMC(uint8_t *pData)
     //
     if(GetField(pData, pField, 6, MAXFIELD))
     {   // convert to cm/s
-        data.speed = round(51.4444 * atof((char *)pField));
+        data.speed = (int16_t)round(51.4444 * atof((char *)pField));
     }
     else
     {
@@ -391,7 +391,7 @@ void ProcessGPRMC(uint8_t *pData)
     //
     if(GetField(pData, pField, 7, MAXFIELD))
     {
-        data.heading = round(100 * atof((char *)pField));
+        data.heading = (int16_t)round(100 * atof((char *)pField));
     }
     else
     {

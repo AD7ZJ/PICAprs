@@ -50,6 +50,7 @@
 #include "fifo.h"
 #include "gps.h"
 #include "mic-e.h"
+#include <math.h>
 
 #define _XTAL_FREQ  32000000
 #define ONE_SEC     20
@@ -111,10 +112,11 @@ void SendPosition(GPSData * gps) {
     RadioRX();
 }
 
-void SendStatus() {
+void SendStatus(GPSData * gps) {
     char buffer[50];
-    strcpy(buffer, ">Balloon www.ansr.org\015");
+    sprintf(buffer, ">ANSR %ld' %d.%01ddop %dtrk www.ansr.org\015", (int32_t)(gps->altitude / 30.48), (uint16_t)(gps->dop / 10), (uint16_t)(gps->dop % 10), (uint16_t)gps->trackedSats);
     TncPreparePacket(buffer, "APRS  ");
+    printf("%s\n", buffer);
 
     // transmit the packet
     RadioTX();
@@ -137,10 +139,10 @@ void main(void) {
     LedBootBlink();
 
     SetLED(3, 1);
-    // wait for someone to press '1' a few times to enter console mode
-    putst("Press '1' to enter console mode\r\n");
+    // wait for someone to press '`' a few times to enter console mode
+    putst("Press '`' to enter console mode\r\n");
     while (sysTick < 300) {
-        if (serbuff == '1') {
+        if (serbuff == '`') {
             serMode = CONSOLE_MODE;
             break;
         }
@@ -159,18 +161,19 @@ void main(void) {
             GpsUpdate();
 
             if (GpsIsDataReady()) {
-                switch (gps->seconds) {
-                    case 6:
-                    case 36:
-                        SendPosition(gps);
-                        break;
+                if (gps->fixType != NoFix) {
+                    switch (gps->seconds) {
+                        case 0:
+                        case 30:
+                            SendPosition(gps);
+                            break;
 
-                    case 15:
-                        // send a status packet
-                        SendStatus();
-                        break;
+                        case 15:
+                            // send a status packet
+                            SendStatus(gps);
+                            break;
+                    }
                 }
-
                 SetLED(1, 1);
                 if (gps->fixType == NoFix)
                     statusLedOffTick = sysTick + 10;
@@ -273,6 +276,13 @@ interrupt isr(void) {
         serbuff = RCREG;
         if (serMode != STARTUP) {
             FifoWrite(serbuff);
+        }
+
+        // clear any overrun errors
+        if (OERR)
+        {
+            CREN=0;
+            CREN=1;
         }
     }
 

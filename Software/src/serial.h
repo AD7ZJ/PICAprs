@@ -13,6 +13,7 @@ void putst(register const char * str);
 void putchdec(unsigned char c);
 void putchhex(unsigned char c);
 void putinthex(unsigned int c);
+void clear_usart_errors(void);
 
 #define putlf putst("\n") //put line feed
 

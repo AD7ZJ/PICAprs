@@ -3,6 +3,7 @@
 #include "main.h"
 #include "tnc.h"
 #include "fifo.h"
+#include "serial.h"
 
 /**
  * @defgroup AX25 Packet Creation
@@ -193,7 +194,9 @@ void TncCalTones(unsigned bitValue) {
  */
 void TncSendPacket(void) {
     // disable interrupts so as not to mess up packet timing
-    //GIE = 0x00;
+    uint8_t temp = INTCON;
+    INTCON &= 0x3F;
+
     while (tncMode != TNC_RX_FLAG) {
         // Output the next step of the sin wave.  The rest of the code in this function determines the
         // frequency of this wave.
@@ -322,8 +325,11 @@ void TncSendPacket(void) {
         timeElapsed += PR2;
     } // end while loop
 
-    // turn interrupts back on
-    //GIE = 0x01;
+    // restore interrupts
+    INTCON = temp;
+
+    // clear any UART errors in the event a character was received while interrupts were disabled
+    clear_usart_errors();
 }
 
 void RadioRX(void) {
