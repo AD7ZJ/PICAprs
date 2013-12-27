@@ -26,6 +26,12 @@
 #ifndef AX25_H
 #define    AX25_H
 
+/**
+ * @defgroup ax25packet AX.25 Packet Creation
+ *
+ * @{
+ */
+
 void TncConfigDefault(); // Configure the TNC
 void TncPreparePacket(uint8_t * message, uint8_t * destaddr); // Prepare a packet to send
 void TncSendPacket(void); // Send a packet via the 4 bit DAC
@@ -74,17 +80,13 @@ typedef struct {
 /// We're closing the packet
 #define TNC_TX_END 6
 
-/**
- * 1200 Hz tone for a mark.  Calculated by (Fosc/4/2)/(1200*16)
- */
-#define     MARK     208
-/**
- * 2200 Hz tone for a space.  Calculated by (Fosc/4/2)/(2200*16)
- */
-#define        SPACE    113
-/**
- * 1200 Baud.  In units of timer 2 (no pre, post scalar 1:2), so calculated by (Fosc/4/2)/(1200)
- */
-#define        BAUD    3333
+/// 1200 Hz tone for a mark.  Calculated by (Fosc/4/2)/(1200*16)
+#define     MARK    208
+/// 2200 Hz tone for a space.  Calculated by (Fosc/4/2)/(2200*16)
+#define     SPACE   113
+/// 1200 Baud.  In units of timer 2 (no pre, post scalar 1:2), so calculated by (Fosc/4/2)/(1200)
+#define     BAUD    3333
+
+/** @} */
 
 #endif /* AX25_H */

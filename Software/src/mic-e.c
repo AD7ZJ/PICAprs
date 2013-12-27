@@ -3,11 +3,17 @@
 #include "stdlib.h"
 #include "mic-e.h"
 
+/**
+ *  @defgroup ax25packet AX.25 Packet Creation
+ *
+ *  @{
+ */
+
 /// Destination address as part of the AX.25 message.
-char destAddress[7];
+static char destAddress[7];
 
 /// Informational text field as part of the AX.25 message.
-char information[20];
+static char information[20];
 
 void MicEEncode (GPSData *gps)
 {
@@ -123,3 +129,5 @@ char * MicEGetInfoField()
 {
     return information;
 }
+
+/** @} */

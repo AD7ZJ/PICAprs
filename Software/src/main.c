@@ -1,13 +1,16 @@
 /**
- * @mainpage PICTrak
+ * @mainpage PICAprs
  *
  * @section overview_sec Overview
  *
- * The PICTrak aims to be a self-contained APRS based tracking system that generates modulated audio (AFSK) to interface
- * with an FM transmitter.  It uses an on-board 4 bit resistor DAC followed by an RC LPF to generate the audio.  It expect
- * NMEA (GGA and RMC strings) in from a GPS on the hardware UART ports.  Currently it's designed to run on a Microchip
- * PIC18F2525 clocked at 32 Mhz although porting to another architecture shouldn't be too difficult (tm) :-)
- *
+ * PICAprs aims to be a self-contained APRS based tracking system that generates
+ * modulated audio (AFSK) to interface with an FM transmitter.  It uses an on-board
+ * 4 bit resistor DAC followed by an RC LPF to generate the audio.  It expects NMEA
+ * (GGA and RMC strings) in from a GPS on the hardware UART ports.  Currently
+ * it's designed to run on a Microchip PIC18F2525 clocked at 32 Mhz although porting
+ * to another architecture shouldn't be too difficult.  Timing during the packet
+ * generation routine is pretty tight and requires interrupts to be disabled until
+ * the packet is finished sending.  
  *
  * @section copyright_sec Copyright
  *
@@ -140,7 +143,7 @@ void main(void) {
 
     SetLED(3, 1);
     // wait for someone to press '`' a few times to enter console mode
-    putst("Press '`' to enter console mode\r\n");
+    SerialPutst("Press '`' to enter console mode\r\n");
     while (sysTick < 300) {
         if (serbuff == '`') {
             serMode = CONSOLE_MODE;

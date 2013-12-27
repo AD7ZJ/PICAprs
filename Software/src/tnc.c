@@ -6,7 +6,7 @@
 #include "serial.h"
 
 /**
- * @defgroup AX25 Packet Creation
+ * @defgroup ax25packet AX.25 Packet Creation
  *
  * Contains functions to control the 4-bit resistor DAC, create packets, and setup the TNC
  * @{
@@ -23,17 +23,16 @@ static unsigned char sinDAC[] = {
     0b1000, 0b0000, 0b1000, 0b0100, 0b1010
 };
 
-/*
- * Define global variables
- */
-uint16_t tncTimerCompare, tncIndex, tncLength;
-uint8_t tncBitCount, tncBitTime, tncShift, tncRx, tncLastBit, tncMode, tncTransmit;
-uint8_t tncBitStuff, tncBuffer[TNC_MAX_TX], tncRemoteTick, index;
-volatile static unsigned int timeElapsed = 0;
+static uint16_t tncIndex, tncLength;
+static uint8_t tncBitCount, tncShift, tncLastBit, tncMode;
+static uint8_t tncBitStuff, tncBuffer[TNC_MAX_TX], sinIndex;
+static uint16_t timeElapsed = 0;
+
+/// Structure containing the TNC configuration (callsign, digi path, etc)
 CONFIG_STRUCT config;
 
 /**
- *    Configure the TNC's callsign, SSID, and digipeat path.
+ * Configure the TNC's callsign, SSID, and digipeat path.
  */
 void TncConfigDefault() {
     // Station ID, relay path, and destination call sign and SSID.
@@ -53,12 +52,12 @@ void TncConfigDefault() {
 }
 
 /**
- *    Calculate the CRC-16 CCITT of <b>buffer</b> that is <b>length</b> bytes long.
+ * Calculate the CRC-16 CCITT of <b>buffer</b> that is <b>length</b> bytes long.
  *
- *    @param buffer Pointer to data buffer.
- *    @param length number of bytes in data buffer
+ * @param buffer Pointer to data buffer.
+ * @param length number of bytes in data buffer
  *
- *    @return CRC-16 of buffer[0 .. length]
+ * @return CRC-16 of buffer[0 .. length]
  */
 uint16_t CRC16(uint8_t *buffer, uint16_t length) {
     uint16_t i, dbit, crc, value;
@@ -79,13 +78,12 @@ uint16_t CRC16(uint8_t *buffer, uint16_t length) {
 }
 
 /**
- *   Prepare an AX.25 packet for transmission.  This function takes a char buffer as
- *   input and operates on tncBuffer.
+ * Prepare an AX.25 packet for transmission.  This function takes a char buffer as
+ * input and operates on tncBuffer.
  *
- *   @param message pointer to NULL terminate message string
- *   @param destaddr pointer to the destination address
+ * @param message pointer to NULL terminate message string
+ * @param destaddr pointer to the destination address
  */
-
 void TncPreparePacket(uint8_t * message, uint8_t * destaddr) {
     uint16_t i, crc;
     uint8_t *outBuffer;
@@ -165,13 +163,18 @@ void TncPreparePacket(uint8_t * message, uint8_t * destaddr) {
     tncMode = TNC_TX_SYNC;
 }
 
+/**
+ * Generate a continuous mark or space tone to allow for frequency calibration
+ *
+ * @param bitValue zero for a 1200hz tone, non-zero for a 2200hz tone
+ */
 void TncCalTones(unsigned bitValue) {
     while (FifoRead() != 'q') {
         // Output the next step of the sin wave.  The rest of the code in this function determines the
         // frequency of this wave.
-        PORTC = sinDAC[index];
-        index++;
-        index &= 0x0F;
+        PORTC = sinDAC[sinIndex];
+        sinIndex++;
+        sinIndex &= 0x0F;
 
         if (bitValue)
             PR2 = MARK;
@@ -186,11 +189,7 @@ void TncCalTones(unsigned bitValue) {
 }
 
 /**
- * Send the prepared packet via the onboard 4-bit resistor DAC.  Depends on the following global vars
- * (local vars are not used to save on function overhead)
- * uint16_t tncIndex, tncLength
- * uint8_t tncBitCount, tncShift, tncLastBit, tncMode, tncBitStuff, index
- * uint8_t tncBuffer[TNC_MAX_TX]
+ * Send the prepared packet via the onboard 4-bit resistor DAC.  
  */
 void TncSendPacket(void) {
     // disable interrupts so as not to mess up packet timing
@@ -200,10 +199,10 @@ void TncSendPacket(void) {
     while (tncMode != TNC_RX_FLAG) {
         // Output the next step of the sin wave.  The rest of the code in this function determines the
         // frequency of this wave.
-        PORTA = sinDAC[index];
-        index++;
+        PORTA = sinDAC[sinIndex];
+        sinIndex++;
         //index &= 0x1F;
-        index &= 0x0F;
+        sinIndex &= 0x0F;
 
         if (timeElapsed >= BAUD) {
             timeElapsed = timeElapsed - BAUD;
@@ -329,13 +328,19 @@ void TncSendPacket(void) {
     INTCON = temp;
 
     // clear any UART errors in the event a character was received while interrupts were disabled
-    clear_usart_errors();
+    SerialClearErrors();
 }
 
+/**
+ * Puts the radio into receive mode
+ */
 void RadioRX(void) {
     PORTC &= ~(1u << 1);
 }
 
+/**
+ * Puts the radio into transmit mode
+ */
 void RadioTX(void) {
     PORTC |= (1u << 1);
 }

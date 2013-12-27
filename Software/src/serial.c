@@ -1,75 +1,81 @@
 #include <htc.h>
 #include "serial.h"
 
-#define    PIC_CLK 32000000
+/**
+ *
+ * @defgroup library Generic Library Functions
+ *
+ * @{
+ */
 
-void SerialInit(void) {
-    /* relates crystal freq to baud rate - see above and PIC16F87x data sheet under 'USART async. modes'
+/* relates crystal freq to baud rate - see above and PIC16F87x data sheet under 'USART async. modes'
 
-    BRGH=1, Fosc=3.6864MHz        BRGH=1, Fosc=4MHz      BRGH=1, Fosc=8MHz    BRGH=1, Fosc=16MHz
-    ----------------------      -----------------      -----------------    ------------------
-    Baud        SPBRG             Baud        SPBRG          Baud        SPBRG         Baud        SPBRG
-    1200        191               1200        207.3          1200        415.7         9600    103
-    2400        95                2400        103.2          2400        207.3         19200        51
-    4800        47                4800        51.1           4800        103.2         38400   25
-    9600        23                9600        25.0           9600        51.1          57600   16
-    19200        11                19200        12.0           19200    25.0          115200  8
-    38400        5                 38400        5.5            38400    12.0
-    57600        3                 57600        3.3            57600    7.7
-    115200    1                 115200    1.2            115200    3.3
+BRGH=1, Fosc=3.6864MHz        BRGH=1, Fosc=4MHz      BRGH=1, Fosc=8MHz    BRGH=1, Fosc=16MHz
+----------------------      -----------------      -----------------    ------------------
+Baud        SPBRG             Baud        SPBRG          Baud        SPBRG         Baud        SPBRG
+1200        191               1200        207.3          1200        415.7         9600        103
+2400        95                2400        103.2          2400        207.3         19200       51
+4800        47                4800        51.1           4800        103.2         38400       25
+9600        23                9600        25.0           9600        51.1          57600       16
+19200       11                19200       12.0           19200       25.0          115200      8
+38400       5                 38400       5.5            38400       12.0
+57600       3                 57600       3.3            57600       7.7
+115200      1                 115200      1.2            115200      3.3
 
-     */
+ */
 
-    /*
-     * Comms setup:
-     */
+/// CPU clock speed in Hz
+#define PIC_CLK 32000000
 
+/// desired serial baud rate
 #define BAUD 9600
+
+/// calculate the baud rate generator divider
 #define DIVIDER ((PIC_CLK/(16UL * BAUD) -1))
+
+/// defines whether to use high speed baud rates or not (setting 0 changes the divider calc)
 #define HIGH_SPEED 1
 
-    //you can comment these #assert statements out if you dont want error checking
-#if PIC_CLK==3686400 && BAUD==19200
-#assert DIVIDER==11
-#elif PIC_CLK==4000000 && BAUD==19200
-#assert DIVIDER==12
-#elif PIC_CLK==16000000 && BAUD==19200
-#assert DIVIDER==51
-#elif PIC_CLK==20000000 && BAUD==19200
-#assert DIVIDER==64
-#endif
+static unsigned char dummy;
 
-    SPBRG = DIVIDER;
-    BRGH = HIGH_SPEED; //data rate for sending
-    SYNC = 0; //asynchronous
-    SPEN = 1; //enable serial port pins
-    CREN = 1; //enable reception
-    TXIE = 0; //disable tx interrupts
-    RCIE = 1; //disable rx interrupts
-    TX9 = 0; //8-bit transmission
-    RX9 = 0; //8-bit reception
-    TXEN = 0; //reset transmitter
-    TXEN = 1; //enable the transmitter
+/**
+ * Initializes the onboard serial port hardware
+ */
+void SerialInit(void) {
+    SPBRG = DIVIDER;    //using the baudrate generator in 8-bit mode
+    BRGH  = HIGH_SPEED; //data rate for sending
+    SYNC  = 0; //asynchronous
+    SPEN  = 1; //enable serial port pins
+    CREN  = 1; //enable reception
+    TXIE  = 0; //disable tx interrupts
+    RCIE  = 1; //enable rx interrupts
+    TX9   = 0;  //8-bit transmission
+    RX9   = 0;  //8-bit reception
+    TXEN  = 0; //reset transmitter
+    TXEN  = 1; //enable the transmitter
 }
 
-unsigned char dummy;
-
+/// macro for clearing any UART errors
 #define clear_usart_errors_inline    \
 if (OERR)                \
-{                    \
-    TXEN=0;                \
-    TXEN=1;                \
-    CREN=0;                \
-    CREN=1;                \
-}                    \
+{                        \
+    TXEN=0;              \
+    TXEN=1;              \
+    CREN=0;              \
+    CREN=1;              \
+}                        \
 if (FERR)                \
-{                    \
-    dummy=RCREG;            \
-    TXEN=0;                \
-    TXEN=1;                \
+{                        \
+    dummy=RCREG;         \
+    TXEN=0;              \
+    TXEN=1;              \
 }
 
-//writes a character to the serial port
+/**
+ * Write a character to the serial port (necessary to use embedded printf calls).
+ *
+ * @param c character to write
+ */
 void putch(unsigned char c) {
     while (!TXIF); //set when register is empty
     {
@@ -80,7 +86,12 @@ void putch(unsigned char c) {
     _delay(240);
 }
 
-//gets a character from the serial port without timeout
+/**
+ * Get a character from the serial port without timeout (neccessary to use
+ * embedded scanf calls).
+ *
+ * @return character received from the UART
+ */
 unsigned char getch(void) {
     while (!RCIF) {
         CLRWDT();
@@ -89,15 +100,24 @@ unsigned char getch(void) {
     return RCREG;
 }
 
-void clear_usart_errors(void) {
+/**
+ * Public function for clearing any framing or overrun errors from the serial
+ * port hardware.
+ */
+void SerialClearErrors(void) {
     clear_usart_errors_inline;
 }
 
 /*
- * writes a character to the serial port in hex
- * if serial lines are disconnected, there are no errors
+ * 
  */
-void putchhex(unsigned char c) {
+
+/**
+ * Write a character to the serial port in hex.
+ *
+ * @param c 8 bit value to output in hex
+ */
+void SerialPutCharHex(unsigned char c) {
     unsigned char temp;
 
     // transmits in hex
@@ -116,14 +136,19 @@ void putchhex(unsigned char c) {
     putch(c);
 }
 
-void putinthex(unsigned int c) {
+/**
+ * Write an integer (16 bit) out to the serial port in hex.
+ *
+ * @param c Integer value to be written
+ */
+void SerialPutIntHex(unsigned int c) {
 #define ramuint(x)              (*((unsigned int *) (x)))
 #define ramuint_hibyte(x)       (*(((unsigned char *)&x)+1))
 #define ramuint_lobyte(x)       (*(((unsigned char *)&x)+0))
 #define ramuchar(x)             (*((unsigned char *) (x)))
 
-    putchhex(ramuint_hibyte(c));
-    putchhex(ramuint_lobyte(c));
+    SerialPutCharHex(ramuint_hibyte(c));
+    SerialPutCharHex(ramuint_lobyte(c));
 
 #undef ramuint(x)
 #undef ramuint_hibyte(x)
@@ -131,18 +156,13 @@ void putinthex(unsigned int c) {
 #undef ramuchar(x)
 }
 
-//if there has been a previous timeout error from getch_timeout, this returns TRUE
 
-unsigned char usart_timeout(void) {
-    //    return usart_timeout_error;
-    return 0;
-}
-
-/*
-writes a character to the serial port in decimal
-if serial lines are disconnected, there are no errors
+/**
+ * Write an 8 bit value to the serial port in decimal form
+ *
+ * @param c 8 bit value to be output.
  */
-void putchdec(unsigned char c) {
+void SerialPutCharDec(unsigned char c) {
     unsigned char temp;
 
     temp = c;
@@ -158,7 +178,11 @@ void putchdec(unsigned char c) {
     putch((c / 1) + '0');
 }
 
-void putst(register const char *str) {
+/**
+ * Write a string to the serial port.
+ * @param str String to be written.  
+ */
+void SerialPutst(register const char *str) {
     while ((*str) != 0) {
         putch(*str);
         if (*str == 13) putch(10);
@@ -167,3 +191,4 @@ void putst(register const char *str) {
     }
 }
 
+/** @} */

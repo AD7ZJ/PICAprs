@@ -33,7 +33,7 @@
 
 
 /**
- *  @defgroup library Generic Library Functions
+ *  @defgroup ax25packet AX.25 Packet Creation
  *
  *  @{
  */

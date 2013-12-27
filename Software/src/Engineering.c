@@ -6,6 +6,17 @@
 #include <htc.h>
 
 #define _XTAL_FREQ 32000000
+
+/**
+ *
+ * @defgroup library Generic Library Functions
+ *
+ * @{
+ */
+
+/**
+ * Called to process commands from the serial port when in 'console' mode
+ */
 void EngineeringConsole() {
     uint8_t buff;
 
@@ -14,10 +25,10 @@ void EngineeringConsole() {
     if (buff) {
         switch(buff) {
             case 'h':
-                putst("PICTrack Engineering Console\n");
-                putst("1: Send APRS packet\n");
-                putst("2: Calibrate the mark tone\n");
-                putst("3: Calibrate the space tone\n");
+                SerialPutst("PICTrack Engineering Console\n");
+                SerialPutst("1: Send APRS packet\n");
+                SerialPutst("2: Calibrate the mark tone\n");
+                SerialPutst("3: Calibrate the space tone\n");
                 break;
 
             case '1':
@@ -39,9 +50,10 @@ void EngineeringConsole() {
                 break;
 
             default:
-                putst("Unknown command, press h for help\r\n");
+                SerialPutst("Unknown command, press h for help\r\n");
                 break;
         }
     }
-
 }
+
+/** @} */

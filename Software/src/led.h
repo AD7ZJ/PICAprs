@@ -1,21 +1,40 @@
-/*
- * LED driver module
- */
+/***************************************************************************
+ *                                                                         *
+ *  This program is free software; you can redistribute it and/or modify   *
+ *  it under the terms of the GNU General Public License as published by   *
+ *  the Free Software Foundation; either version 2 of the License, or      *
+ *  (at your option) any later version.                                    *
+ *                                                                         *
+ *  This program is distributed in the hope that it will be useful,        *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of         *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          *
+ *  GNU General Public License for more details.                           *
+ *                                                                         *
+ *  You should have received a copy of the GNU General Public License      *
+ *  along with this program; if not, write to the Free Software            *
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111 USA    *
+ *                                                                         *
+ ***************************************************************************
+ *                                                                         *
+ *               (c) Copyright, 2013, AD7ZJ                                *
+ *                                                                         *
+ ***************************************************************************
+ *                                                                         *
+ * Filename:     led.h                                                     *
+ *                                                                         *
+ ***************************************************************************/
 
 #include "main.h"
 
-
 /**
- * Turns the specified LED on or off
  *
- * @param ledId LED to turn on or off (1 - 3)
- * @param state TRUE turns the LED on, FALSE turns it off
+ * @defgroup library Generic Library Functions
+ *
+ * @{
  */
+
+
 void SetLED(uint8_t ledId, bool_t state);
-
-/**
- * Toggles the specified LED
- *
- * @param ledId LED to toggle (1 - 3)
- */
 void ToggleLED(uint8_t ledId);
+
+/** @} */

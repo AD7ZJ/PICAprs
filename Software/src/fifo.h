@@ -16,7 +16,7 @@
  *                                                                         *
  ***************************************************************************
  *                                                                         *
- *               (c) Copyright, 1997-2013, ANSR                            *
+ *               (c) Copyright, 1997-2013, AD7ZJ                           *
  *                                                                         *
  ***************************************************************************
  *                                                                         *
@@ -30,15 +30,14 @@
 #include "main.h"
 
 /**
- *  @defgroup library Generic Library Functions
- *
- *  @{
- */
-
-/**
  * Generic FIFO suitable for UART ports and other 8-bit based devices
  * that require a data FIFO.
+ *
+ * @defgroup library Generic Library Functions
+ *
+ * @{
  */
+
 
 void FifoClear();
 bool_t FifoHasData();

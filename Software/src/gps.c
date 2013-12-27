@@ -6,30 +6,38 @@
 #include "fifo.h"
 #include "serial.h"
 
-#define MAX_CMD_LEN     8               // maximum command length (NMEA address)
-#define MAX_DATA_LEN    255             // maximum data length
-#define MAX_CHAN        36              // maximum number of channels
-#define WAYPOINT_ID_LEN 32              // waypoint max string len
-#define MAXFIELD        25
+/**
+ *  @defgroup GPS GPS Parsing
+ *
+ *  @{
+ */
+#define MAX_CMD_LEN     8               ///< maximum command length (NMEA address)
+#define MAX_DATA_LEN    255             ///< maximum data length
+#define MAX_CHAN        36              ///< maximum number of channels
+#define WAYPOINT_ID_LEN 32              ///< waypoint max string len
+#define MAXFIELD        25              ///< maximum length of any NMEA field
 
-static uint8_t calcChecksum;                        // Calculated NMEA sentence checksum
-static uint8_t receivedChecksum;                    // Received NMEA sentence checksum (if exists)
-static uint16_t index;                              // Index used for command and data
-static uint8_t commandBuffer[MAX_CMD_LEN];          // NMEA command
-static uint8_t dataBuffer[MAX_DATA_LEN];            // NMEA data
-GPS_PARSE_STATE_MACHINE gpsParseState;
-NMEA_PACKET_TYPE gpsPacketType;
+static uint8_t calcChecksum;                // Calculated NMEA sentence checksum
+static uint8_t receivedChecksum;            // Received NMEA sentence checksum (if exists)
+static uint16_t index;                      // Index used for command and data
+static uint8_t commandBuffer[MAX_CMD_LEN];  // NMEA command
+static uint8_t dataBuffer[MAX_DATA_LEN];    // NMEA data
+static bool_t dataReadyFlag;                // Flag that is set when a data set has been parsed.
+static GPSData data;                        // GPS data structure
 
-// GPS data structure
-GPSData data;
-/// Flag that is set when a data set has been parsed.
-static bool_t dataReadyFlag;
+/// keeps track of the current parse state
+GPS_PARSE_STATE_MACHINE gpsParseState;      
 
 void ProcessCommand(uint8_t *pCommand, uint8_t *pData);
 bool_t GetField(uint8_t *pData, uint8_t *pField, int8_t nFieldNum, int8_t nMaxFieldLen);
 void ProcessGPGGA(uint8_t *pData);
 void ProcessGPRMC(uint8_t *pData);
 
+/**
+ * Gets a pointer to the GPS data structure
+ * 
+ * @return pointer to the GPSData structure
+ */
 GPSData * GpsGetData() {
     return &data;
 }
@@ -148,6 +156,9 @@ void GpsUpdate() {
 /**
  * Process NMEA sentence - switch on the NMEA command and call the
  * appropriate processor
+ *
+ * @param pCommand string containing the command in question
+ * @param pData string containing the data associated with the command
  */
 void ProcessCommand(uint8_t *pCommand, uint8_t *pData) {
     /*
@@ -161,9 +172,6 @@ void ProcessCommand(uint8_t *pCommand, uint8_t *pData) {
      */
     else if (!strcmp((char *) pCommand, "GPRMC"))
         ProcessGPRMC(pData);
-
-    //m_dwCommandCount++;
-    //return TRUE;
 }
 
 /**
@@ -171,7 +179,7 @@ void ProcessCommand(uint8_t *pCommand, uint8_t *pData) {
  *
  * @param pData Pointer to NMEA string
  * @param pField Pointer to returned field
- * @param nfieldNum Field offset to get
+ * @param nFieldNum Field offset to get
  * @param nMaxFieldLen Maximum number of bytes pField can handle
  */
 bool_t GetField(uint8_t *pData, uint8_t *pField, int8_t nFieldNum, int8_t nMaxFieldLen) {
@@ -228,6 +236,11 @@ bool_t GetField(uint8_t *pData, uint8_t *pField, int8_t nFieldNum, int8_t nMaxFi
     return TRUE;
 }
 
+/**
+ * Parses an NMEA $GPGGA packet and inserts the data into the GPSData structure
+ *
+ * @param pData string containing the data associated with a GPGGA packet
+ */
 void ProcessGPGGA(uint8_t *pData) {
     uint8_t pField[MAXFIELD];
     char pBuff[10];
@@ -298,6 +311,11 @@ void ProcessGPGGA(uint8_t *pData) {
     dataReadyFlag = TRUE;
 }
 
+/**
+ * Parses an NMEA $GPRMC packet and inserts the data into the GPSData structure
+ *
+ * @param pData string containing the data associated with a GPRMC packet
+ */
 void ProcessGPRMC(uint8_t *pData)
 {
     char pBuff[10];
@@ -423,3 +441,5 @@ void ProcessGPRMC(uint8_t *pData)
         data.year += 2000;             // make 4 digit date
     }
 }
+
+/** @} */

@@ -20,11 +20,11 @@
  *                                                                         *
  ***************************************************************************
  *                                                                         *
- *               (c) Copyright, 2001-2012, ANSR                            *
+ *               (c) Copyright, 2001-2013 AD7ZJ                            *
  *                                                                         *
  ***************************************************************************
  *                                                                         *
- * Filename:     GPSLassen.h                                               *
+ * Filename:     gps.h                                                     *
  *                                                                         *
  ***************************************************************************/
 
@@ -34,7 +34,7 @@
 #include "main.h"
 
 /**
- *  @defgroup GPS Stuff
+ *  @defgroup GPS GPS Parsing
  *
  *  @{
  */
@@ -53,7 +53,7 @@ typedef enum
     Fix3D = 0x03
 } FixType;
 
-
+/// Structure that contains all the GPS data
 typedef struct GPSData {
     /// UTC time in hours in the range 0 to 23.
     uint8_t hours;
@@ -104,6 +104,7 @@ typedef struct GPSData {
     uint8_t timeToFirstFix;
 } GPSData;
 
+/// enumeration of the NMEA parser's states
 typedef enum {
     STARTOFMESSAGE,
     COMMAND,
@@ -112,10 +113,6 @@ typedef enum {
     CHECKSUM_2
 } GPS_PARSE_STATE_MACHINE;
 
-typedef enum {
-    GGA,
-    RMC
-} NMEA_PACKET_TYPE;
 
 GPSData * GpsGetData();
 bool_t GpsIsDataReady();
