@@ -39,6 +39,9 @@
  *         @subsection v001 V0.01
  *         03 Nov 2013, Initial release.
  *
+ * @defgroup app Main Application
+ *
+ * @{
  */
 
 #include <htc.h>
@@ -55,7 +58,10 @@
 #include "mic-e.h"
 #include <math.h>
 
+/// Needed by the compiler for _delay() routines
 #define _XTAL_FREQ  32000000
+
+/// Number of system timer ticks in one second
 #define ONE_SEC     20
 
 /*
@@ -74,25 +80,17 @@
 void sysInit(void);
 void LedBootBlink(void);
 
-/*
- * Definitions
- *
- */
+/// Enumeration of serial port modes
 typedef enum {
     STARTUP,
     GPS_MODE,
     CONSOLE_MODE
 } SER_PORT_MODE;
 
-/**
- * Global variables
- */
-static uint16_t secCount;
-
 /// Holds the last received byte from the serial port
 volatile char serbuff = 0;
 
-/// system 50ms time tick
+/// system 50ms timer tick
 static uint32_t sysTick;
 
 /// keeps track of the one second tick
@@ -104,6 +102,11 @@ static uint32_t statusLedOffTick;
 /// Keeps track of whether the serial port is in console mode or GPS mode
 SER_PORT_MODE serMode;
 
+/**
+ * Sends a MIC-E position packet
+ *
+ * @param gps GPSData structure containing location to send
+ */
 void SendPosition(GPSData * gps) {
     MicEEncode(gps);
     TncPreparePacket(MicEGetInfoField(), MicEGetDestAddress());
@@ -115,6 +118,11 @@ void SendPosition(GPSData * gps) {
     RadioRX();
 }
 
+/**
+ * Sends an AX.25 status packet
+ *
+ * @param gps GPSData structure from which to get altitude, dop, and number of tracked satelites
+ */
 void SendStatus(GPSData * gps) {
     char buffer[50];
     sprintf(buffer, ">ANSR %ld' %d.%01ddop %dtrk www.ansr.org\015", (int32_t)(gps->altitude / 30.48), (uint16_t)(gps->dop / 10), (uint16_t)(gps->dop % 10), (uint16_t)gps->trackedSats);
@@ -127,6 +135,9 @@ void SendStatus(GPSData * gps) {
     RadioRX();
 }
 
+/**
+ * Main application loop
+ */
 void main(void) {
     sysInit();
     SerialInit();
@@ -184,7 +195,7 @@ void main(void) {
                     statusLedOffTick = sysTick + 2;
             }
 
-            /** 1s tasks **/
+            // 1s tasks
             if (sysTick > oneSecTick) {
                 //printf("Uptime: %ul\r\n", uptime);
                 oneSecTick = sysTick + ONE_SEC;
@@ -218,6 +229,9 @@ void LedBootBlink(void) {
     }
 }
 
+/**
+ * Initialize hardware
+ */
 void sysInit(void) {
     // port directions: 1=input, 0=output
     LATA = 0x00;
@@ -260,7 +274,6 @@ void sysInit(void) {
     PEIE = 0x1;
     INTCON = 0b11000000;
     RCIE = 0x01;
-    secCount = 0;
 
     // Put the serial port in startup mode
     serMode = STARTUP;
@@ -273,6 +286,9 @@ void sysInit(void) {
     statusLedOffTick = 0;
 }
 
+/**
+ * System interrupt handler
+ */
 interrupt isr(void) {
     // Serial receive interrupt
     if (RCIF) {
@@ -291,7 +307,6 @@ interrupt isr(void) {
 
     // Timer 1 interrupt every 50ms
     if (TMR1IF) {
-        secCount++;
         // Clear interrupt flag & reload timer
         TMR1IF = 0x00;
         TMR1H = 0xC3;
@@ -299,3 +314,5 @@ interrupt isr(void) {
         sysTick++;
     }
 }
+
+/** @} */
