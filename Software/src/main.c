@@ -57,6 +57,7 @@
 #include "gps.h"
 #include "mic-e.h"
 #include <math.h>
+#include "pff.h"
 
 /// Needed by the compiler for _delay() routines
 #define _XTAL_FREQ  32000000
@@ -139,6 +140,10 @@ void SendStatus(GPSData * gps) {
  * Main application loop
  */
 void main(void) {
+    FATFS fs;   /* Work area (file system object) for logical drive */
+    FRESULT res;
+    WORD bw;
+
     sysInit();
     SerialInit();
     GPSData * gps;
@@ -166,6 +171,21 @@ void main(void) {
     // if console mode was not selected, default to using the GPS
     if (serMode != CONSOLE_MODE)
         serMode = GPS_MODE;
+
+    res = pf_mount(&fs);
+    if (res)
+        printf("Failed to mount drive: %d\r\n", res);
+
+    /* Open a file */
+    res = pf_open("srcfile.dat");
+    if (res)
+        printf("Failed to open file: %d\r\n", res);
+
+    res = pf_write("test data", 9, &bw);
+    if (res)
+        printf("Failed to write to file: %d\r\n", res);
+
+    pf_write(0, 0, &bw);
 
     while (1) {
         if (serMode == CONSOLE_MODE)
@@ -239,7 +259,7 @@ void sysInit(void) {
     LATB = 0x00;
     TRISB = 0b00000000;
     LATC = 0x00;
-    TRISC = 0b11000000;
+    TRISC = 0b11010000;
 
     // multiply internal 8 MHz clock x4
     OSCCON = 0b01110000;
