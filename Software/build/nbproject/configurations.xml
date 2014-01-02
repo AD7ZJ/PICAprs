@@ -14,7 +14,9 @@
       <itemPath>../src/serial.h</itemPath>
       <itemPath>../src/tnc.h</itemPath>
       <itemPath>../src/sd.h</itemPath>
-      <itemPath>../src/pff.h</itemPath>
+      <itemPath>../src/ffconf.h</itemPath>
+      <itemPath>../src/ff.h</itemPath>
+      <itemPath>../src/fftypes.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -33,7 +35,7 @@
       <itemPath>../src/serial.c</itemPath>
       <itemPath>../src/tnc.c</itemPath>
       <itemPath>../src/sd.c</itemPath>
-      <itemPath>../src/pff.c</itemPath>
+      <itemPath>../src/ff.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"

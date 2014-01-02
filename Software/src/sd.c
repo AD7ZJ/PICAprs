@@ -1,25 +1,302 @@
-/*-------------------------------------------------------------------------*/
-/* PFF - Low level disk control module for PIC            (C)ChaN, 2010    */
-/*-------------------------------------------------------------------------*/
-
-#include "pff.h"
-#include "sd.h"
-
-/*-------------------------------------------------------------------------*/
-/* Platform dependent macros and functions needed to be modified           */
-/*-------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------/
+/  MMCv3/SDv1/SDv2 (in SPI mode) control module
+/-------------------------------------------------------------------------/
+/
+/  Copyright (C) 2013, ChaN, all right reserved.
+/
+/ * This software is a free software and there is NO WARRANTY.
+/ * No restriction on use. You can use, modify and redistribute it for
+/   personal, non-profit or commercial products UNDER YOUR RESPONSIBILITY.
+/ * Redistributions of source code must retain the above copyright notice.
+/
+/  File History:
+/    12/31/13 - Original version by ChaN from sample projects
+/    01/02/14 - Modified to work on PIC18F2525
+/
+/-------------------------------------------------------------------------*/
 
 #include <htc.h>
+#include "sd.h"
 
-#define SELECT()        PORTCbits.RC2 = 0         /* CS = L */
-#define DESELECT()      PORTCbits.RC2 = 1         /* CS = H */
-#define MMC_SEL         !PORTCbits.RC2            /* CS status (true:CS == L) */
-#define _XTAL_FREQ      32000000
 
-static UCHAR dummy;
+/*--------------------------------------------------------------------------
+
+   Module Private Functions
+
+---------------------------------------------------------------------------*/
+
+
+
+/* Port Controls  (Platform dependent) */
+#define CS_LOW()    PORTCbits.RC2 = 0   /* MMC CS = L */
+#define CS_HIGH()   PORTCbits.RC2 = 1   /* MMC CS = H */
+#define INS         1                   /* Card detected   (yes:true, no:false, default:true) */
+#define WP          0                   /* Write protected (yes:true, no:false, default:false) */
+
+#define FCLK_SLOW()            /* Set slow clock (100k-400k) */
+#define FCLK_FAST()            /* Set fast clock (depends on the CSD) */
+#define _XTAL_FREQ 32000000
+
+
+/*--------------------------------------------------------------------------
+
+   Module Private Functions
+
+---------------------------------------------------------------------------*/
+
+/* Definitions for MMC/SDC command */
+#define CMD0   (0)              /* GO_IDLE_STATE */
+#define CMD1   (1)              /* SEND_OP_COND */
+#define ACMD41 (41|0x80)        /* SEND_OP_COND (SDC) */
+#define CMD8   (8)              /* SEND_IF_COND */
+#define CMD9   (9)              /* SEND_CSD */
+#define CMD10  (10)             /* SEND_CID */
+#define CMD12  (12)             /* STOP_TRANSMISSION */
+#define ACMD13 (13|0x80)        /* SD_STATUS (SDC) */
+#define CMD16  (16)             /* SET_BLOCKLEN */
+#define CMD17  (17)             /* READ_SINGLE_BLOCK */
+#define CMD18  (18)             /* READ_MULTIPLE_BLOCK */
+#define CMD23  (23)             /* SET_BLOCK_COUNT */
+#define ACMD23 (23|0x80)        /* SET_WR_BLK_ERASE_COUNT (SDC) */
+#define CMD24  (24)             /* WRITE_BLOCK */
+#define CMD25  (25)             /* WRITE_MULTIPLE_BLOCK */
+#define CMD41  (41)             /* SEND_OP_COND (ACMD) */
+#define CMD55  (55)             /* APP_CMD */
+#define CMD58  (58)             /* READ_OCR */
+
+
+static volatile
+DSTATUS Stat = STA_NOINIT; /* Disk status */
+
+static volatile
+UINT Timer1, Timer2; /* 1000Hz decrement timer */
 
 static
-void init_spi(void) /* Initialize SPI port */ {
+UINT CardType;
+
+
+
+/*-----------------------------------------------------------------------*/
+/* Transmit/Receive data to/from MMC via SPI  (Platform dependent)       */
+
+/*-----------------------------------------------------------------------*/
+
+static
+BYTE xchg_spi(BYTE dat) {
+    SSPBUF = dat;
+    while (!SSPSTATbits.BF);
+    return (BYTE) SSPBUF;
+}
+
+/* Alternative macro to transfer data fast */
+#define XMIT_SPI_MULTI(src,cnt) {   \
+    UINT c=cnt/2;                   \
+    const BYTE *p=src;              \
+    do {                            \
+        SSPBUF=*p++;                \
+        while(!SSPSTATbits.BF);     \
+        SSPBUF;                     \
+        SSPBUF=*p++;                \
+        while(!SSPSTATbits.BF);     \
+        SSPBUF;                     \
+    } while(--c);                   \
+}
+
+#define RCVR_SPI_MULTI(dst,cnt) {   \
+    UINT c=cnt/2;                   \
+    BYTE *p=dst;                    \
+    do {                            \
+        SSPBUF=0xFF;                \
+        while(!SSPSTATbits.BF);     \
+        *p++=SSPBUF;                \
+        SSPBUF=0xFF;                \
+        while(!SSPSTATbits.BF);     \
+        *p++=SSPBUF;                \
+    } while(--c);                   \
+}
+
+
+
+/*-----------------------------------------------------------------------*/
+/* Wait for card ready                                                   */
+
+/*-----------------------------------------------------------------------*/
+
+static
+int wait_ready(void) {
+    BYTE d;
+
+    Timer2 = 500; /* Wait for ready in timeout of 500ms */
+    do {
+        d = xchg_spi(0xFF);
+    } while ((d != 0xFF) && Timer2);
+
+    return (d == 0xFF) ? 1 : 0;
+}
+
+
+
+/*-----------------------------------------------------------------------*/
+/* Deselect the card and release SPI bus                                 */
+
+/*-----------------------------------------------------------------------*/
+
+static
+void deselect(void) {
+    CS_HIGH();
+    xchg_spi(0xFF); /* Dummy clock (force DO hi-z for multiple slave SPI) */
+}
+
+
+
+/*-----------------------------------------------------------------------*/
+/* Select the card and wait ready                                        */
+
+/*-----------------------------------------------------------------------*/
+
+static
+int select(void) /* 1:Successful, 0:Timeout */ {
+    CS_LOW();
+    xchg_spi(0xFF); /* Dummy clock (force DO enabled) */
+
+    if (wait_ready()) return 1; /* OK */
+    deselect();
+    return 0; /* Timeout */
+}
+
+
+
+/*-----------------------------------------------------------------------*/
+/* Receive a data packet from MMC                                        */
+
+/*-----------------------------------------------------------------------*/
+
+static
+int rcvr_datablock(/* 1:OK, 0:Failed */
+        BYTE *buff, /* Data buffer to store received data */
+        UINT btr /* Byte count (must be multiple of 4) */
+        ) {
+    BYTE token;
+
+
+    Timer1 = 100;
+    do { /* Wait for data packet in timeout of 100ms */
+        token = xchg_spi(0xFF);
+    } while ((token == 0xFF) && Timer1);
+
+    if (token != 0xFE) return 0; /* If not valid data token, retutn with error */
+
+    RCVR_SPI_MULTI(buff, btr); /* Receive the data block into buffer */
+    xchg_spi(0xFF); /* Discard CRC */
+    xchg_spi(0xFF);
+
+    return 1; /* Return with success */
+}
+
+
+
+/*-----------------------------------------------------------------------*/
+/* Send a data packet to MMC                                             */
+/*-----------------------------------------------------------------------*/
+
+#if _USE_WRITE
+
+static
+int xmit_datablock(/* 1:OK, 0:Failed */
+        const BYTE *buff, /* 512 byte data block to be transmitted */
+        BYTE token /* Data token */
+        ) {
+    BYTE resp;
+
+
+    if (!wait_ready()) return 0;
+
+    xchg_spi(token); /* Xmit a token */
+    if (token != 0xFD) { /* Not StopTran token */
+        XMIT_SPI_MULTI(buff, 512); /* Xmit the data block to the MMC */
+        xchg_spi(0xFF); /* CRC (Dummy) */
+        xchg_spi(0xFF);
+        resp = xchg_spi(0xFF); /* Receive a data response */
+        if ((resp & 0x1F) != 0x05) /* If not accepted, return with error */
+            return 0;
+    }
+
+    return 1;
+}
+#endif
+
+
+
+/*-----------------------------------------------------------------------*/
+/* Send a command packet to MMC                                          */
+/*-----------------------------------------------------------------------*/
+static
+BYTE send_cmd (
+    BYTE cmd,        /* Command byte */
+    DWORD arg        /* Argument */
+)
+{
+    BYTE n, res;
+
+
+    if (cmd & 0x80) {    /* ACMD<n> is the command sequense of CMD55-CMD<n> */
+        cmd &= 0x7F;
+        //res = send_cmd(CMD55, 0);
+
+        /* Select the card and wait for ready */
+        deselect();
+        if (!select()) return 0xFF;
+
+        /* Send command packet */
+        xchg_spi(0x40 | CMD55); /* Start + Command index */
+        xchg_spi((BYTE)0);      /* Argument[31..24] */
+        xchg_spi((BYTE)0);      /* Argument[23..16] */
+        xchg_spi((BYTE)0);      /* Argument[15..8] */
+        xchg_spi((BYTE)0);      /* Argument[7..0] */
+        n = 0x01;               /* Dummy CRC + Stop */
+        xchg_spi(n);
+
+        /* Receive command response */
+        n = 10;                            /* Wait for a valid response in timeout of 10 attempts */
+        do
+            res = xchg_spi(0xFF);
+        while ((res & 0x80) && --n);
+
+        if (res > 1) return res;
+    }
+
+    /* Select the card and wait for ready except to stop multiple block read */
+    if (cmd != CMD12) {
+        deselect();
+        if (!select()) return 0xFF;
+    }
+
+    /* Send command packet */
+    xchg_spi(0x40 | cmd);            /* Start + Command index */
+    xchg_spi((BYTE)(arg >> 24));    /* Argument[31..24] */
+    xchg_spi((BYTE)(arg >> 16));    /* Argument[23..16] */
+    xchg_spi((BYTE)(arg >> 8));        /* Argument[15..8] */
+    xchg_spi((BYTE)arg);            /* Argument[7..0] */
+    n = 0x01;                        /* Dummy CRC + Stop */
+    if (cmd == CMD0) n = 0x95;        /* Valid CRC for CMD0(0) + Stop */
+    if (cmd == CMD8) n = 0x87;        /* Valid CRC for CMD8(0x1AA) + Stop */
+    xchg_spi(n);
+
+    /* Receive command response */
+    if (cmd == CMD12) xchg_spi(0xFF);    /* Skip a stuff byte on stop to read */
+    n = 10;                            /* Wait for a valid response in timeout of 10 attempts */
+    do
+        res = xchg_spi(0xFF);
+    while ((res & 0x80) && --n);
+
+    return res;            /* Return with the response value */
+}
+
+/**
+ * Setup the SPI port to communicate with the SD card
+ */
+static
+void power_on (void) {
     // enable the SPI driver
     SSPCON1bits.SSPEN = 1;
 
@@ -32,116 +309,13 @@ void init_spi(void) /* Initialize SPI port */ {
     SSPSTATbits.SMP = 0;
 }
 
+/**
+ * Mark the SD card as un-initialized
+ */
 static
-void xmit_spi(BYTE d) /* Send a byte to the MMC */ {
-    SSPBUF = d;
-    while (!SSPSTATbits.BF);
-    dummy = SSPBUF;
+void power_off (void) {
+    Stat |= STA_NOINIT;    /* Force uninitialized */
 }
-
-static
-BYTE rcv_spi(void) /* Send a 0xFF to the MMC and get the received byte */ {
-    SSPBUF = 0xFF;
-    while (!SSPSTATbits.BF);
-    return (BYTE) SSPBUF;
-}
-
-/*--------------------------------------------------------------------------
-
-   Module Private Functions
-
----------------------------------------------------------------------------*/
-
-/* Definitions for MMC/SDC command */
-#define CMD0	(0x40+0)	/* GO_IDLE_STATE */
-#define CMD1	(0x40+1)	/* SEND_OP_COND (MMC) */
-#define	ACMD41	(0xC0+41)	/* SEND_OP_COND (SDC) */
-#define CMD8	(0x40+8)	/* SEND_IF_COND */
-#define CMD16	(0x40+16)	/* SET_BLOCKLEN */
-#define CMD17	(0x40+17)	/* READ_SINGLE_BLOCK */
-#define CMD24	(0x40+24)	/* WRITE_BLOCK */
-#define CMD55	(0x40+55)	/* APP_CMD */
-#define CMD58	(0x40+58)	/* READ_OCR */
-
-
-/* Card type flags (CardType) */
-#define CT_MMC				0x01	/* MMC ver 3 */
-#define CT_SD1				0x02	/* SD ver 1 */
-#define CT_SD2				0x04	/* SD ver 2 */
-#define CT_BLOCK			0x08	/* Block addressing */
-
-
-static
-BYTE CardType;
-
-
-/*-----------------------------------------------------------------------*/
-/* Send a command packet to MMC                                          */
-
-/*-----------------------------------------------------------------------*/
-
-static
-BYTE send_cmd(
-        BYTE cmd, /* 1st byte (Start + Index) */
-        DWORD arg /* Argument (32 bits) */
-        ) {
-    BYTE n, res;
-
-
-    if (cmd & 0x80) { /* ACMD<n> is the command sequense of CMD55-CMD<n> */
-        cmd &= 0x7F;
-        
-        /* Select the card */
-        DESELECT();
-        rcv_spi();
-        SELECT();
-        rcv_spi();
-
-        /* Send CMD55 */
-        xmit_spi(CMD55);/* Start + Command index */
-        xmit_spi(0);    /* Argument[31..24] */
-        xmit_spi(0);    /* Argument[23..16] */
-        xmit_spi(0);    /* Argument[15..8] */
-        xmit_spi(0);    /* Argument[7..0] */
-        xmit_spi(0x01);
-
-        /* Receive a command response */
-        n = 10; /* Wait for a valid response in timeout of 10 attempts */
-        do {
-            res = rcv_spi();
-        } while ((res & 0x80) && --n);
-
-        if (res > 1) return res;
-    }
-
-    /* Select the card */
-    DESELECT();
-    rcv_spi();
-    SELECT();
-    rcv_spi();
-
-    /* Send a command packet */
-    xmit_spi(cmd); /* Start + Command index */
-    xmit_spi((BYTE) (arg >> 24)); /* Argument[31..24] */
-    xmit_spi((BYTE) (arg >> 16)); /* Argument[23..16] */
-    xmit_spi((BYTE) (arg >> 8)); /* Argument[15..8] */
-    xmit_spi((BYTE) arg); /* Argument[7..0] */
-    n = 0x01; /* Dummy CRC + Stop */
-    if (cmd == CMD0) n = 0x95; /* Valid CRC for CMD0(0) */
-    if (cmd == CMD8) n = 0x87; /* Valid CRC for CMD8(0x1AA) */
-    xmit_spi(n);
-
-    /* Receive a command response */
-    n = 10; /* Wait for a valid response in timeout of 10 attempts */
-    do {
-        res = rcv_spi();
-    } while ((res & 0x80) && --n);
-
-    return res; /* Return with the response value */
-}
-
-
-
 
 /*--------------------------------------------------------------------------
 
@@ -149,34 +323,46 @@ BYTE send_cmd(
 
 ---------------------------------------------------------------------------*/
 
+/**
+ * Initialize the SPI port connected to the SD card
+ */
+void SdInitialize(void) {
+    
+}
+
+
 /*-----------------------------------------------------------------------*/
 /* Initialize Disk Drive                                                 */
-
 /*-----------------------------------------------------------------------*/
 
-DSTATUS disk_initialize(void) {
+DSTATUS disk_initialize(
+        BYTE pdrv /* Physical drive nmuber (0) */
+        ) {
     BYTE n, cmd, ty, ocr[4];
-    UINT tmr;
 
-#if _USE_WRITE
-    if (CardType && MMC_SEL) disk_writep(0, 0); /* Finalize write process if it is in progress */
-#endif
-    init_spi(); /* Initialize ports to control MMC */
-    DESELECT();
-    for (n = 10; n; n--) rcv_spi(); /* 80 Dummy clocks with CS=H */
+
+    if (pdrv) return STA_NOINIT; /* Supports only single drive */
+    if (Stat & STA_NODISK) return Stat; /* No card in the socket */
+
+    // power on card
+    power_on();
+    FCLK_SLOW();
+    deselect();
+    for (n = 10; n; n--) xchg_spi(0xFF); /* 80 dummy clocks */
 
     for(n = 0; n < 100; n++)
         __delay_us(50);
 
     ty = 0;
     if (send_cmd(CMD0, 0) == 1) { /* Enter Idle state */
-        if (send_cmd(CMD8, 0x1AA) == 1) { /* SDv2 */
-            for (n = 0; n < 4; n++) ocr[n] = rcv_spi(); /* Get trailing return value of R7 resp */
+        Timer1 = 1000; /* Initialization timeout of 1000 msec */
+        if (send_cmd(CMD8, 0x1AA) == 1) { /* SDv2? */
+            for (n = 0; n < 4; n++) ocr[n] = xchg_spi(0xFF); /* Get trailing return value of R7 resp */
             if (ocr[2] == 0x01 && ocr[3] == 0xAA) { /* The card can work at vdd range of 2.7-3.6V */
-                for (tmr = 10000; tmr && send_cmd(ACMD41, 1UL << 30); tmr--) __delay_us(100); /* Wait for leaving idle state (ACMD41 with HCS bit) */
-                if (tmr && send_cmd(CMD58, 0) == 0) { /* Check CCS bit in the OCR */
-                    for (n = 0; n < 4; n++) ocr[n] = rcv_spi();
-                    ty = (ocr[0] & 0x40) ? CT_SD2 | CT_BLOCK : CT_SD2; /* SDv2 (HC or SC) */
+                while (Timer1 && send_cmd(ACMD41, 0x40000000)); /* Wait for leaving idle state (ACMD41 with HCS bit) */
+                if (Timer1 && send_cmd(CMD58, 0) == 0) { /* Check CCS bit in the OCR */
+                    for (n = 0; n < 4; n++) ocr[n] = xchg_spi(0xFF);
+                    ty = (ocr[0] & 0x40) ? CT_SD2 | CT_BLOCK : CT_SD2; /* SDv2 */
                 }
             }
         } else { /* SDv1 or MMCv3 */
@@ -187,123 +373,276 @@ DSTATUS disk_initialize(void) {
                 ty = CT_MMC;
                 cmd = CMD1; /* MMCv3 */
             }
-            for (tmr = 10000; tmr && send_cmd(cmd, 0); tmr--) __delay_us(100); /* Wait for leaving idle state */
-            if (!tmr || send_cmd(CMD16, 512) != 0) /* Set R/W block length to 512 */
+            while (Timer1 && send_cmd(cmd, 0)); /* Wait for leaving idle state */
+            if (!Timer1 || send_cmd(CMD16, 512) != 0) /* Set read/write block length to 512 */
                 ty = 0;
         }
     }
     CardType = ty;
-    DESELECT();
-    rcv_spi();
+    deselect();
 
-    return ty ? 0 : STA_NOINIT;
-}
-
-
-
-/*-----------------------------------------------------------------------*/
-/* Read partial sector                                                   */
-
-/*-----------------------------------------------------------------------*/
-
-DRESULT disk_readp(
-        BYTE *buff, /* Pointer to the read buffer (NULL:Read bytes are forwarded to the stream) */
-        DWORD lba, /* Sector number (LBA) */
-        WORD ofs, /* Byte offset to read from (0..511) */
-        WORD cnt /* Number of bytes to read (ofs + cnt mus be <= 512) */
-        ) {
-    DRESULT res;
-    BYTE rc;
-    WORD bc;
-
-
-    if (!(CardType & CT_BLOCK)) lba *= 512; /* Convert to byte address if needed */
-
-    res = RES_ERROR;
-    if (send_cmd(CMD17, lba) == 0) { /* READ_SINGLE_BLOCK */
-
-        bc = 40000;
-        do { /* Wait for data packet */
-            rc = rcv_spi();
-        } while (rc == 0xFF && --bc);
-
-        if (rc == 0xFE) { /* A data packet arrived */
-            bc = 514 - ofs - cnt;
-
-            /* Skip leading bytes */
-            if (ofs) {
-                do rcv_spi(); while (--ofs);
-            }
-
-            /* Receive a part of the sector */
-            if (buff) { /* Store data to the memory */
-                do {
-                    *buff++ = rcv_spi();
-                } while (--cnt);
-            } else { /* Forward data to the outgoing stream (depends on the project) */
-                // write data out directly if you want to
-            }
-
-            /* Skip trailing bytes and CRC */
-            do rcv_spi(); while (--bc);
-
-            res = RES_OK;
-        }
+    if (ty) { /* Initialization succeded */
+        Stat &= ~STA_NOINIT; /* Clear STA_NOINIT */
+        FCLK_FAST();
+    } else { /* Initialization failed */
+        power_off();
     }
 
-    DESELECT();
-    rcv_spi();
-
-    return res;
+    return Stat;
 }
 
 
 
 /*-----------------------------------------------------------------------*/
-/* Write partial sector                                                  */
+/* Get Disk Status                                                       */
+/*-----------------------------------------------------------------------*/
+
+DSTATUS disk_status(
+        BYTE pdrv /* Physical drive nmuber (0) */
+        ) {
+    if (pdrv) return STA_NOINIT; /* Supports only single drive */
+    return Stat;
+}
+
+
+
+/*-----------------------------------------------------------------------*/
+/* Read Sector(s)                                                        */
+/*-----------------------------------------------------------------------*/
+
+DRESULT disk_read(
+        BYTE pdrv, /* Physical drive nmuber (0) */
+        BYTE *buff, /* Pointer to the data buffer to store read data */
+        DWORD sector, /* Start sector number (LBA) */
+        UINT count /* Sector count (1..128) */
+        ) {
+    if (pdrv || !count) return RES_PARERR;
+    if (Stat & STA_NOINIT) return RES_NOTRDY;
+
+    if (!(CardType & CT_BLOCK)) sector *= 512; /* Convert to byte address if needed */
+
+    if (count == 1) { /* Single block read */
+        if ((send_cmd(CMD17, sector) == 0) /* READ_SINGLE_BLOCK */
+                && rcvr_datablock(buff, 512))
+            count = 0;
+    } else { /* Multiple block read */
+        if (send_cmd(CMD18, sector) == 0) { /* READ_MULTIPLE_BLOCK */
+            do {
+                if (!rcvr_datablock(buff, 512)) break;
+                buff += 512;
+            } while (--count);
+            send_cmd(CMD12, 0); /* STOP_TRANSMISSION */
+        }
+    }
+    deselect();
+
+    return count ? RES_ERROR : RES_OK;
+}
+
+
+
+/*-----------------------------------------------------------------------*/
+/* Write Sector(s)                                                       */
 /*-----------------------------------------------------------------------*/
 
 #if _USE_WRITE
 
-DRESULT disk_writep(
-        const BYTE *buff, /* Pointer to the bytes to be written (NULL:Initiate/Finalize sector write) */
-        DWORD sa /* Number of bytes to send, Sector number (LBA) or zero */
+DRESULT disk_write(
+        BYTE pdrv, /* Physical drive nmuber (0) */
+        const BYTE *buff, /* Pointer to the data to be written */
+        DWORD sector, /* Start sector number (LBA) */
+        UINT count /* Sector count (1..128) */
         ) {
-    DRESULT res;
-    WORD bc;
-    static WORD wc;
+    if (pdrv || !count) return RES_PARERR;
+    if (Stat & STA_NOINIT) return RES_NOTRDY;
+    if (Stat & STA_PROTECT) return RES_WRPRT;
 
-    res = RES_ERROR;
+    if (!(CardType & CT_BLOCK)) sector *= 512; /* Convert to byte address if needed */
 
-    if (buff) { /* Send data bytes */
-        bc = (WORD) sa;
-        while (bc && wc) { /* Send data bytes to the card */
-            xmit_spi(*buff++);
-            wc--;
-            bc--;
-        }
-        res = RES_OK;
-    } else {
-        if (sa) { /* Initiate sector write process */
-            if (!(CardType & CT_BLOCK)) sa *= 512; /* Convert to byte address if needed */
-            if (send_cmd(CMD24, sa) == 0) { /* WRITE_SINGLE_BLOCK */
-                xmit_spi(0xFF);
-                xmit_spi(0xFE); /* Data block header */
-                wc = 512; /* Set byte counter */
-                res = RES_OK;
-            }
-        } else { /* Finalize sector write process */
-            bc = wc + 2;
-            while (bc--) xmit_spi(0); /* Fill left bytes and CRC with zeros */
-            if ((rcv_spi() & 0x1F) == 0x05) { /* Receive data resp and wait for end of write process in timeout of 500ms */
-                for (bc = 5000; rcv_spi() != 0xFF && bc; bc--) __delay_us(100); /* Wait ready */
-                if (bc) res = RES_OK;
-            }
-            DESELECT();
-            rcv_spi();
+    if (count == 1) { /* Single block write */
+        if ((send_cmd(CMD24, sector) == 0) /* WRITE_BLOCK */
+                && xmit_datablock(buff, 0xFE))
+            count = 0;
+    } else { /* Multiple block write */
+        if (CardType & CT_SDC) send_cmd(ACMD23, count);
+        if (send_cmd(CMD25, sector) == 0) { /* WRITE_MULTIPLE_BLOCK */
+            do {
+                if (!xmit_datablock(buff, 0xFC)) break;
+                buff += 512;
+            } while (--count);
+            if (!xmit_datablock(0, 0xFD)) /* STOP_TRAN token */
+                count = 1;
         }
     }
+    deselect();
+
+    return count ? RES_ERROR : RES_OK;
+}
+#endif
+
+
+
+/*-----------------------------------------------------------------------*/
+/* Miscellaneous Functions                                               */
+/*-----------------------------------------------------------------------*/
+
+#if _USE_IOCTL
+
+DRESULT disk_ioctl(
+        BYTE pdrv, /* Physical drive nmuber (0) */
+        BYTE cmd, /* Control code */
+        void *buff /* Buffer to send/receive data block */
+        ) {
+    DRESULT res;
+    BYTE n, csd[16], *ptr = buff;
+    DWORD csz;
+
+
+    if (pdrv) return RES_PARERR;
+    if (Stat & STA_NOINIT) return RES_NOTRDY;
+
+    res = RES_ERROR;
+    switch (cmd) {
+        case CTRL_SYNC: /* Flush write-back cache, Wait for end of internal process */
+            if (select()) res = RES_OK;
+            break;
+
+        case GET_SECTOR_COUNT: /* Get number of sectors on the disk (WORD) */
+            if ((send_cmd(CMD9, 0) == 0) && rcvr_datablock(csd, 16)) {
+                if ((csd[0] >> 6) == 1) { /* SDv2? */
+                    csz = csd[9] + ((WORD) csd[8] << 8) + ((DWORD) (csd[7] & 63) << 16) + 1;
+                    *(DWORD*) buff = csz << 10;
+                } else { /* SDv1 or MMCv3 */
+                    n = (csd[5] & 15) + ((csd[10] & 128) >> 7) + ((csd[9] & 3) << 1) + 2;
+                    csz = (csd[8] >> 6) + ((WORD) csd[7] << 2) + ((WORD) (csd[6] & 3) << 10) + 1;
+                    *(DWORD*) buff = csz << (n - 9);
+                }
+                res = RES_OK;
+            }
+            break;
+
+        case GET_BLOCK_SIZE: /* Get erase block size in unit of sectors (DWORD) */
+            if (CardType & CT_SD2) { /* SDv2? */
+                if (send_cmd(ACMD13, 0) == 0) { /* Read SD status */
+                    xchg_spi(0xFF);
+                    if (rcvr_datablock(csd, 16)) { /* Read partial block */
+                        for (n = 64 - 16; n; n--) xchg_spi(0xFF); /* Purge trailing data */
+                        *(DWORD*) buff = 16UL << (csd[10] >> 4);
+                        res = RES_OK;
+                    }
+                }
+            } else { /* SDv1 or MMCv3 */
+                if ((send_cmd(CMD9, 0) == 0) && rcvr_datablock(csd, 16)) { /* Read CSD */
+                    if (CardType & CT_SD1) { /* SDv1 */
+                        *(DWORD*) buff = (((csd[10] & 63) << 1) + ((WORD) (csd[11] & 128) >> 7) + 1) << ((csd[13] >> 6) - 1);
+                    } else { /* MMCv3 */
+                        *(DWORD*) buff = ((WORD) ((csd[10] & 124) >> 2) + 1) * (((csd[11] & 3) << 3) + ((csd[11] & 224) >> 5) + 1);
+                    }
+                    res = RES_OK;
+                }
+            }
+            break;
+
+        case MMC_GET_TYPE: /* Get card type flags (1 byte) */
+            *ptr = CardType;
+            res = RES_OK;
+            break;
+
+        case MMC_GET_CSD: /* Receive CSD as a data block (16 bytes) */
+            if ((send_cmd(CMD9, 0) == 0) /* READ_CSD */
+                    && rcvr_datablock(buff, 16))
+                res = RES_OK;
+            break;
+
+        case MMC_GET_CID: /* Receive CID as a data block (16 bytes) */
+            if ((send_cmd(CMD10, 0) == 0) /* READ_CID */
+                    && rcvr_datablock(buff, 16))
+                res = RES_OK;
+            break;
+
+        case MMC_GET_OCR: /* Receive OCR as an R3 resp (4 bytes) */
+            if (send_cmd(CMD58, 0) == 0) { /* READ_OCR */
+                for (n = 0; n < 4; n++)
+                    *((BYTE*) buff + n) = xchg_spi(0xFF);
+                res = RES_OK;
+            }
+            break;
+
+        case MMC_GET_SDSTAT: /* Receive SD statsu as a data block (64 bytes) */
+            if ((CardType & CT_SD2) && send_cmd(ACMD13, 0) == 0) { /* SD_STATUS */
+                xchg_spi(0xFF);
+                if (rcvr_datablock(buff, 64))
+                    res = RES_OK;
+            }
+            break;
+
+        default:
+            res = RES_PARERR;
+    }
+
+    deselect();
 
     return res;
 }
 #endif
+
+
+/*-----------------------------------------------------------------------*/
+/* Device Timer Driven Procedure                                         */
+/*-----------------------------------------------------------------------*/
+
+/* This function will be called by timer interrupt every 50ms            */
+
+void disk_timerproc(void) {
+    BYTE s;
+    INT n;
+
+    n = Timer1; /* 1000Hz decrement timer with zero stopped */
+    if (n) {
+        n -= 50;
+        if (n > 0)
+            Timer1 = n;
+        else
+            Timer1 = 0;
+    }
+
+    n = Timer2;
+    if (n) {
+        n -= 50;
+        if (n > 0)
+            Timer2 = n;
+        else
+            Timer2 = 0;
+    }
+
+    /* Update socket status */
+    s = Stat;
+
+    if (WP) s |= STA_PROTECT;
+    else s &= ~STA_PROTECT;
+
+    if (INS) s &= ~STA_NODISK;
+    else s |= (STA_NODISK | STA_NOINIT);
+
+    Stat = s;
+}
+
+/*---------------------------------------------------------*/
+/* User Provided RTC Function for FatFs module             */
+/*---------------------------------------------------------*/
+/* returns a hard-coded date (Jan 1, 2014)                 */
+DWORD get_fattime (void)
+{
+    DWORD tmr;
+
+
+    /* Pack date and time into a DWORD variable */
+    tmr =      (((DWORD)(2014-1980) - 80) << 25) // year
+            | ((DWORD)1 << 21)                  // month
+            | ((DWORD)1 << 16)                  // day
+            | (WORD)(0 << 11)                   // hour
+            | (WORD)(0 << 5)                    // minute
+            | (WORD)(0 >> 1);                   // second
+
+    return tmr;
+}

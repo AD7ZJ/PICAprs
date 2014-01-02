@@ -5,6 +5,7 @@
 #include "gps.h"
 #include "fifo.h"
 #include "serial.h"
+#include "ff.h"
 
 /**
  *  @defgroup GPS GPS Parsing
@@ -12,7 +13,7 @@
  *  @{
  */
 #define MAX_CMD_LEN     8               ///< maximum command length (NMEA address)
-#define MAX_DATA_LEN    255             ///< maximum data length
+#define MAX_DATA_LEN    128             ///< maximum data length
 #define MAX_CHAN        36              ///< maximum number of channels
 #define WAYPOINT_ID_LEN 32              ///< waypoint max string len
 #define MAXFIELD        25              ///< maximum length of any NMEA field
@@ -22,8 +23,12 @@ static uint8_t receivedChecksum;            // Received NMEA sentence checksum (
 static uint16_t index;                      // Index used for command and data
 static uint8_t commandBuffer[MAX_CMD_LEN];  // NMEA command
 static uint8_t dataBuffer[MAX_DATA_LEN];    // NMEA data
+static uint8_t nmeaBuffer[MAX_DATA_LEN];    // Raw NMEA string
+static uint8_t nmeaIndex;
 static bool_t dataReadyFlag;                // Flag that is set when a data set has been parsed.
-static GPSData data;                        // GPS data structure
+static GPSData data;                        // GPS data
+
+extern FIL logFile;
 
 /// keeps track of the current parse state
 GPS_PARSE_STATE_MACHINE gpsParseState;      
@@ -65,6 +70,9 @@ void GpsUpdate() {
 
     while (FifoHasData()) {
         value = FifoRead();
+        nmeaBuffer[nmeaIndex] = value;
+        if (nmeaIndex < (MAX_DATA_LEN - 1))
+            nmeaIndex++;
 
         // This state machine handles each character as it is read from the GPS serial port.
 
@@ -76,6 +84,8 @@ void GpsUpdate() {
                 if (value == '$') {
                     calcChecksum = 0; // reset checksum
                     index = 0; // reset index
+                    nmeaIndex = 0;
+                    nmeaBuffer[nmeaIndex++] = value;
                     gpsParseState = COMMAND;
                 }
                 break;
@@ -161,6 +171,16 @@ void GpsUpdate() {
  * @param pData string containing the data associated with the command
  */
 void ProcessCommand(uint8_t *pCommand, uint8_t *pData) {
+    FRESULT res;
+    UINT bytesWritten;
+
+    // log the string
+    strcat(nmeaBuffer, "\r\n");
+    nmeaIndex += 2;
+    res = f_write(&logFile, nmeaBuffer, nmeaIndex, &bytesWritten);
+    if (res || bytesWritten < nmeaIndex)
+        printf("Failed to log nmea: %d\r\n", res);
+
     /*
      * GPGGA
      */

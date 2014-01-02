@@ -57,13 +57,15 @@
 #include "gps.h"
 #include "mic-e.h"
 #include <math.h>
-#include "pff.h"
+#include "ff.h"
+#include "sd.h"
 
 /// Needed by the compiler for _delay() routines
 #define _XTAL_FREQ  32000000
 
 /// Number of system timer ticks in one second
-#define ONE_SEC     100 //20
+#define ONE_SEC     20
+#define FIVE_SEC    100
 
 /*
  * Fuse settings
@@ -92,7 +94,7 @@ typedef enum {
 volatile char serbuff = 0;
 
 /// system 50ms timer tick
-static uint32_t sysTick;
+volatile static uint32_t sysTick;
 
 /// keeps track of the one second tick
 static uint32_t oneSecTick;
@@ -136,11 +138,13 @@ void SendStatus(GPSData * gps) {
     RadioRX();
 }
 
+FATFS fileSystem;   /* Work area (file system object) for logical drive */
+FIL logFile;
+
 /**
  * Main application loop
  */
 void main(void) {
-    FATFS fs;   /* Work area (file system object) for logical drive */
     FRESULT res;
     WORD bw, btw;
     char buffer[80];
@@ -169,18 +173,22 @@ void main(void) {
     }
     SetLED(3, 0);
 
+
+    /* Register work area to the default drive */
+    res = f_mount(&fileSystem, "", 0);
+    if (res)
+        printf("Failed to mount filesystem!\r\n");
+
+    /* Open a text file */
+    res = f_open(&logFile, "test.txt", FA_OPEN_ALWAYS | FA_WRITE);
+    if (res)
+        printf("Failed to open file: %d\r\n", res);
+
+
+
     // if console mode was not selected, default to using the GPS
     if (serMode != CONSOLE_MODE)
         serMode = GPS_MODE;
-
-    res = pf_mount(&fs);
-    if (res)
-        printf("Failed to mount drive: %d\r\n", res);
-
-    /* Open a file */
-    res = pf_open("srcfile.dat");
-    if (res)
-        printf("Failed to open file: %d\r\n", res);
 
     while (1) {
         if (serMode == CONSOLE_MODE)
@@ -213,18 +221,11 @@ void main(void) {
             // 5s tasks
             if (sysTick > oneSecTick) {
                 //printf("Uptime: %ul\r\n", uptime);
-                oneSecTick = sysTick + ONE_SEC;
+                oneSecTick = sysTick + 400;
 
                 SetLED(3, 1);
 
-                btw = sprintf(buffer, "Lat: %ld Long: %ld Alt: %ld Seconds: %d \r\n", gps->latitude, gps->longitude, gps->altitude / 30.48, gps->seconds);
-                res = pf_write(buffer, btw, &bw);
-                if (res || bw < btw)
-                    printf("Failed to write to file: %d wrote: %d\r\n", res, bw);
-
-                /*tempPtr = fs.fptr;
-                pf_write(0, 0, &bw);
-                pf_lseek(tempPtr); */
+                f_sync(&logFile);
 
                 SetLED(3, 0);
             }
@@ -340,6 +341,9 @@ interrupt isr(void) {
         TMR1H = 0xC3;
         TMR1L = 0x50;
         sysTick++;
+
+        // update the filesystem timers
+        disk_timerproc();
     }
 }
 
