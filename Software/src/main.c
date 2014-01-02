@@ -63,7 +63,7 @@
 #define _XTAL_FREQ  32000000
 
 /// Number of system timer ticks in one second
-#define ONE_SEC     20
+#define ONE_SEC     100 //20
 
 /*
  * Fuse settings
@@ -142,7 +142,8 @@ void SendStatus(GPSData * gps) {
 void main(void) {
     FATFS fs;   /* Work area (file system object) for logical drive */
     FRESULT res;
-    WORD bw;
+    WORD bw, btw;
+    char buffer[80];
 
     sysInit();
     SerialInit();
@@ -181,12 +182,6 @@ void main(void) {
     if (res)
         printf("Failed to open file: %d\r\n", res);
 
-    res = pf_write("test data", 9, &bw);
-    if (res)
-        printf("Failed to write to file: %d\r\n", res);
-
-    pf_write(0, 0, &bw);
-
     while (1) {
         if (serMode == CONSOLE_MODE)
             EngineeringConsole();
@@ -215,10 +210,23 @@ void main(void) {
                     statusLedOffTick = sysTick + 2;
             }
 
-            // 1s tasks
+            // 5s tasks
             if (sysTick > oneSecTick) {
                 //printf("Uptime: %ul\r\n", uptime);
                 oneSecTick = sysTick + ONE_SEC;
+
+                SetLED(3, 1);
+
+                btw = sprintf(buffer, "Lat: %ld Long: %ld Alt: %ld Seconds: %d \r\n", gps->latitude, gps->longitude, gps->altitude / 30.48, gps->seconds);
+                res = pf_write(buffer, btw, &bw);
+                if (res || bw < btw)
+                    printf("Failed to write to file: %d wrote: %d\r\n", res, bw);
+
+                /*tempPtr = fs.fptr;
+                pf_write(0, 0, &bw);
+                pf_lseek(tempPtr); */
+
+                SetLED(3, 0);
             }
 
             // update the GPS status LED
