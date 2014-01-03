@@ -175,8 +175,8 @@ void ProcessCommand(uint8_t *pCommand, uint8_t *pData) {
     UINT bytesWritten;
 
     // log the string
-    strcat(nmeaBuffer, "\r\n");
-    nmeaIndex += 2;
+    nmeaBuffer[nmeaIndex++] = '\r';
+    nmeaBuffer[nmeaIndex++] = '\n';
     res = f_write(&logFile, nmeaBuffer, nmeaIndex, &bytesWritten);
     if (res || bytesWritten < nmeaIndex)
         printf("Failed to log nmea: %d\r\n", res);
