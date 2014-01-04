@@ -165,7 +165,7 @@ void main(void) {
     SetLED(3, 1);
     // wait for someone to press '`' a few times to enter console mode
     SerialPutst("Press '`' to enter console mode\r\n");
-    while (sysTick < 300) {
+    while (sysTick < FIVE_SEC) {
         if (serbuff == '`') {
             serMode = CONSOLE_MODE;
             break;
@@ -221,7 +221,7 @@ void main(void) {
             // 5s tasks
             if (sysTick > oneSecTick) {
                 //printf("Uptime: %ul\r\n", uptime);
-                oneSecTick = sysTick + 400;
+                oneSecTick = sysTick + FIVE_SEC;
 
                 SetLED(3, 1);
 
@@ -338,8 +338,8 @@ interrupt isr(void) {
     if (TMR1IF) {
         // Clear interrupt flag & reload timer
         TMR1IF = 0x00;
-        TMR1H = 0xC3;
-        TMR1L = 0x50;
+        TMR1H = 0x3C;
+        TMR1L = 0xAF;
         sysTick++;
 
         // update the filesystem timers
