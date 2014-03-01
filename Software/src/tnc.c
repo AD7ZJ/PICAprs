@@ -31,6 +31,8 @@ static uint16_t timeElapsed = 0;
 /// Structure containing the TNC configuration (callsign, digi path, etc)
 CONFIG_STRUCT config;
 
+#define _XTAL_FREQ 32000000
+
 /**
  * Configure the TNC's callsign, SSID, and digipeat path.
  */
@@ -39,10 +41,10 @@ void TncConfigDefault() {
     strcpy(config.callSign, "AD7ZJ ");
     config.callSignSSID = 11;
     strcpy(config.destCallSign, "APRS  ");
-    strcpy(config.relayCallSign1, "WIDE2 ");
-    strcpy(config.relayCallSign2, "      ");
-    config.relayCallSignSSID1 = 2;
-    config.relayCallSignSSID2 = 0;
+    strcpy(config.relayCallSign1, "GATE  ");
+    strcpy(config.relayCallSign2, "WIDE2 ");
+    config.relayCallSignSSID1 = 0;
+    config.relayCallSignSSID2 = 1;
 
     // Number of TNC flag bytes sent before data stream starts.  (350mS) 1 byte = 6.6mS
     config.txDelay = 53;
@@ -342,7 +344,12 @@ void RadioRX(void) {
  * Puts the radio into transmit mode
  */
 void RadioTX(void) {
+    int i;
     PORTC |= (1u << 1);
+    
+    // give the radio time to key up
+    for (i = 0; i < 20; i++)
+        __delay_ms(10);
 }
 
 /** @} */

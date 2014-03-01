@@ -81,7 +81,7 @@ typedef struct {
 #define TNC_TX_END 6
 
 /// 1200 Hz tone for a mark.  Calculated by (Fosc/4/2)/(1200*16)
-#define     MARK    208
+#define     MARK    207
 /// 2200 Hz tone for a space.  Calculated by (Fosc/4/2)/(2200*16)
 #define     SPACE   113
 /// 1200 Baud.  In units of timer 2 (no pre, post scalar 1:2), so calculated by (Fosc/4/2)/(1200)

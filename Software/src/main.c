@@ -184,11 +184,19 @@ void main(void) {
     if (res)
         printf("Failed to open file: %d\r\n", res);
 
-
+    /* seek to end of the file */
+    f_lseek(&logFile, f_size(&logFile));
 
     // if console mode was not selected, default to using the GPS
-    if (serMode != CONSOLE_MODE)
+    if (serMode != CONSOLE_MODE) {
         serMode = GPS_MODE;
+        
+        TncPreparePacket(">Successful boot!\015", "APRS  ");
+        // transmit the packet
+        RadioTX();
+        TncSendPacket();
+        RadioRX();
+    }
 
     while (1) {
         if (serMode == CONSOLE_MODE)
@@ -200,12 +208,12 @@ void main(void) {
             if (GpsIsDataReady()) {
                 if (gps->fixType != NoFix) {
                     switch (gps->seconds) {
-                        case 0:
-                        case 30:
+                        case 15:
+                        case 45:
                             SendPosition(gps);
                             break;
 
-                        case 15:
+                        case 23:
                             // send a status packet
                             SendStatus(gps);
                             break;

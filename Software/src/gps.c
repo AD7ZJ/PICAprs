@@ -147,8 +147,7 @@ void GpsUpdate() {
                 else
                     receivedChecksum |= (value - 'A' + 10);
 
-                //FIXME: re-add verifying the checksum after testing is finished
-                //if (calcChecksum == receivedChecksum)
+                if (calcChecksum == receivedChecksum)
                     ProcessCommand(commandBuffer, dataBuffer);
 
                 gpsParseState = STARTOFMESSAGE;
@@ -319,7 +318,7 @@ void ProcessGPGGA(uint8_t *pData) {
 
     // HDOP
     if (GetField(pData, pField, 7, MAXFIELD)) {
-        data.dop = (uint16_t)round(atof((char *) pField) * 10); // FIXME: is this the right units?
+        data.dop = (uint16_t)round(atof((char *) pField) * 10);
     }
 
     // Altitude
@@ -384,7 +383,7 @@ void ProcessGPRMC(uint8_t *pData)
     {
         data.latitude = (int32_t)round(10000000 * atof((char *) pField + 2) / 60.0);
         pField[2] = '\0';
-        data.latitude += (int32_t)round(10000000 * atof((char *) pField));
+        data.latitude += (int32_t)(10000000 * atol((char *) pField));
 
     }
     if(GetField(pData, pField, 3, MAXFIELD))
@@ -402,7 +401,7 @@ void ProcessGPRMC(uint8_t *pData)
     {
         data.longitude = (int32_t)round(10000000 * atof((char *)pField+3) / 60.0);
         pField[3] = '\0';
-        data.longitude += (int32_t)round(10000000 * atof((char *)pField));
+        data.longitude += (int32_t)(10000000 * atol((char *)pField));
     }
     if(GetField(pData, pField, 5, MAXFIELD))
     {
@@ -416,8 +415,8 @@ void ProcessGPRMC(uint8_t *pData)
     // Ground speed
     //
     if(GetField(pData, pField, 6, MAXFIELD))
-    {   // convert to cm/s
-        data.speed = (int16_t)round(51.4444 * atof((char *)pField));
+    {   // store as knots * 10
+        data.speed = (int16_t)round(10 * atof((char *)pField));
     }
     else
     {

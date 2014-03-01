@@ -54,7 +54,8 @@ void MicEEncode (GPSData *gps)
     information[0] = '`';
 
     // Convert to units of decimal degrees.
-    value = labs(gps->longitude) / 10000000;
+    value = labs(gps->longitude);
+    value /= 10000000;
 
     // Adjust the destination for the +100 longitude.
     if (value <= 9 || value >= 100)
