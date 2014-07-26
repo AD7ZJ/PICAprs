@@ -85,7 +85,7 @@ typedef struct {
 /// 2200 Hz tone for a space.  Calculated by (Fosc/4/2)/(2200*16)
 #define     SPACE   113
 /// 1200 Baud.  In units of timer 2 (no pre, post scalar 1:2), so calculated by (Fosc/4/2)/(1200)
-#define     BAUD    3333
+#define     BAUD    3300
 
 /** @} */
 

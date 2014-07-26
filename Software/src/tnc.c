@@ -18,7 +18,7 @@
  * on the particular HW configuration :-)
  */
 static unsigned char sinDAC[] = {
-    0b1110, 0b0101, 0b1011, 0b0111, 0b1111, 0b0111,
+    0b0001, 0b0101, 0b1011, 0b0111, 0b1111, 0b0111,
     0b1011, 0b0101, 0b0001, 0b1010, 0b0100,
     0b1000, 0b0000, 0b1000, 0b0100, 0b1010
 };
