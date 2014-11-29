@@ -8,7 +8,8 @@
 /**
  * @defgroup ax25packet AX.25 Packet Creation
  *
- * Contains functions to control the 4-bit resistor DAC, create packets, and setup the TNC
+ * Contains functions to control the 4-bit resistor DAC, create packets, 
+ * and setup the software TNC
  * @{
  */
 

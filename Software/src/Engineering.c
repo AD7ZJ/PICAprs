@@ -33,7 +33,7 @@ void EngineeringConsole() {
 
             case '1':
                 RadioTX();
-                TncPreparePacket("$GPGGA,155146,3515.5466,N,11211.0917,W,1,10,0.9,2059.0,M,,M,,*74", "APRS  ");
+                TncPreparePacket("$GPGGA,155146,3000.5000,N,10000.0100,W,1,10,0.9,2000.0,M,,M,,*74", "APRS  ");
                 // Send it
                 TncSendPacket();
 

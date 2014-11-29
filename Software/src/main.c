@@ -38,6 +38,11 @@
  *
  *         @subsection v001 V0.01
  *         03 Nov 2013, Initial release.
+ *         @subsection v100 V1.00
+ *         01 Mar 2014, Release for first flight
+ *         @subsection v101 V1.01
+ *         25 Jul 2014, Sin lookup table error fixed and experimentally
+ *                      tuned the symbol clocks to be closer to nominal values.
  *
  * @defgroup app Main Application
  *

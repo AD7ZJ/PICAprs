@@ -1,9 +1,9 @@
 #include <htc.h>
 /*
- * Read the ADC on a 16F690.
+ * Read the ADC on most of the 8bit PICs.
  */
 
-void adc_read(unsigned char channel) {
+void AdcRead(unsigned char channel) {
     // Right justify, channel select, ADON
     ADCON0 = ((channel & 0b00001111) << 2) | 0b10000001;
     // Aquisition time of 20uS
